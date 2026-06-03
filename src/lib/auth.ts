@@ -1,12 +1,16 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, getDocFromServer, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
+import { initializeFirestore, doc, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { AppUser, UserRole } from '../types';
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
+
+// Use initializeFirestore to enable force long polling which is more reliable in some environments
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, (firebaseConfig as any).firestoreDatabaseId);
 
 // Error Handling Infrastructure
 export enum OperationType {
@@ -126,7 +130,7 @@ export const assignUserRole = async (user: User, role: UserRole): Promise<AppUse
 
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
-    isSigningIn = true;
+    // Attempt sign in with popup directly to maintain user gesture
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
@@ -136,10 +140,13 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
+    if (error.code === 'auth/popup-blocked') {
+      console.error('Sign-in popup was blocked by the browser.');
+    } else if (error.code === 'auth/unauthorized-domain') {
+      console.error('This domain is not authorized for Firebase Authentication. Please add it in the Firebase Console.');
+    }
     console.error('Sign in error:', error);
     throw error;
-  } finally {
-    isSigningIn = false;
   }
 };
 

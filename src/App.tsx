@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { Invoice, InvoiceStatus } from './types';
-import { SEED_INVOICES } from './utils';
+import { calculateInvoice, formatCurrency, formatDate, SEED_INVOICES } from './utils';
 import StatsDashboard from './components/StatsDashboard';
 import InvoiceList from './components/InvoiceList';
 import InvoiceForm from './components/InvoiceForm';
@@ -250,10 +250,12 @@ export default function App() {
   };
 
   const handleLogin = async () => {
-    setIsLoggingIn(true);
+    // We call googleSignIn immediately to preserve the user-click gesture context for the browser's popup blocker.
+    // We don't set loading state BEFORE the call to avoid a re-render that might disrupt the gesture.
     try {
       const result = await googleSignIn();
       if (result) {
+        setIsLoggingIn(true);
         setUser(result.user);
         setAccessToken(result.accessToken);
         
@@ -271,8 +273,14 @@ export default function App() {
           }
         }
       }
-    } catch (err) {
-      showToast('Login failed. Please try again.', 'error');
+    } catch (err: any) {
+      if (err.code === 'auth/popup-blocked') {
+        showToast('Login blocked. Please allow popups for this site.', 'error');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        showToast('Domain not authorized. Please check your Firebase settings.', 'error');
+      } else {
+        showToast('Login failed. Please try again.', 'error');
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -343,7 +351,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-sm font-bold text-white tracking-tight leading-none flex items-center gap-1.5">
-                Ledger.ai
+                Liliprovisions Ltd
               </h1>
               <p className="text-[10px] text-zinc-500 mt-1 font-mono">
                 Pristine Ledger & Credit Index
@@ -660,7 +668,7 @@ export default function App() {
             {/* Standard printed layout duplication simply fallback */}
             <div className="flex items-center justify-between pb-6 border-b border-light-grey mb-6">
               <div>
-                <h1 className="text-lg font-bold text-slate-900">Vertex Studios Co.</h1>
+                <h1 className="text-lg font-bold text-slate-900">Liliprovisions Ltd</h1>
                 <p className="text-xs text-slate-400">VAT: US-8921104-B</p>
               </div>
               <div className="text-right">
@@ -682,7 +690,7 @@ export default function App() {
                   <tr key={item.id}>
                     <td className="py-2">{item.description}</td>
                     <td className="py-2 text-center">{item.quantity}</td>
-                    <td className="py-2 text-right">${item.price.toFixed(2)}</td>
+                    <td className="py-2 text-right">{formatCurrency(item.price)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Invoice, InvoiceStatus, AppUser } from '../types';
 import { calculateInvoice, formatCurrency, formatDate } from '../utils';
-import { Search, Filter, Trash2, Edit2, Eye, CheckCircle, Clock, AlertTriangle, FileText, ArrowUpDown, Receipt } from 'lucide-react';
+import { Search, Filter, Trash2, Edit2, Eye, CheckCircle, Clock, AlertTriangle, FileText, ArrowUpDown, Receipt, X } from 'lucide-react';
 
 interface InvoiceListProps {
   invoices: Invoice[];
@@ -126,16 +126,25 @@ export default function InvoiceList({
       {/* Filters and Search Bar */}
       <div className="p-6 border-b border-[#1F1F1F] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between no-print">
         {/* Search Input */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+        <div className="relative flex-1 max-w-md group">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
           <input
             id="invoice-search-input"
             type="text"
-            placeholder="Search by client name, email or ID..."
+            placeholder="Search by client name or invoice ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-[#0C0C0C] border border-[#1F1F1F] rounded-lg text-sm text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 placeholder:text-zinc-550 font-sans"
+            className="w-full pl-10 pr-10 py-2 bg-[#0C0C0C] border border-[#1F1F1F] rounded-lg text-sm text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 placeholder:text-zinc-550 font-sans transition-all"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white cursor-pointer p-0.5 rounded-md hover:bg-white/5 transition-all"
+              title="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         {/* Action Button & Filtering Tabs Row */}
@@ -328,13 +337,25 @@ export default function InvoiceList({
           </table>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-[#1C1C1C] flex items-center justify-center text-zinc-500 mb-4 border border-[#1F1F1F]">
-              <Search size={22} />
+            <div className="w-16 h-16 rounded-3xl bg-[#0C0C0C] flex items-center justify-center text-zinc-500 mb-6 border border-[#1F1F1F] shadow-inner">
+              <Search size={28} className={searchTerm ? 'text-indigo-400' : ''} />
             </div>
-            <h3 className="font-semibold text-white text-base">No invoices indexed</h3>
-            <p className="text-zinc-500 text-sm mt-1.5 max-w-sm">
-              We couldn't find any documents matching your active filtering selection. Reset to show all ledgers or issue a new bill.
+            <h3 className="font-bold text-white text-lg tracking-tight">
+              {searchTerm ? 'No matches found' : 'No invoices indexed'}
+            </h3>
+            <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto font-medium">
+              {searchTerm 
+                ? `We couldn't find any invoices matching "${searchTerm}". Try a different name or ID.`
+                : "Your ledger is currently empty. Reset your filters or start by issuing a new invoice."}
             </p>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="mt-6 text-indigo-400 hover:text-indigo-300 text-sm font-bold cursor-pointer transition-colors"
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         )}
       </div>

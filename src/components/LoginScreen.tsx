@@ -31,7 +31,7 @@ export default function LoginScreen({ onLogin, isLoggingIn, onRolePreselect, pre
             <Receipt size={32} className="stroke-[2.5]" />
           </div>
 
-          <h1 className="text-2xl font-bold text-white mb-3 tracking-tight">Liliprovisions Ledger Secure Access</h1>
+          <h1 className="text-2xl font-bold text-white mb-3 tracking-tight">Liliprovisions Ltd Ledger Secure Access</h1>
           <p className="text-zinc-500 text-sm mb-10 leading-relaxed italic">
             "Every gram of meat accounted for. Every credit verified."
           </p>

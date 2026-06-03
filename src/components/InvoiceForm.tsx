@@ -1,5 +1,6 @@
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import { Invoice, LineItem, InvoiceStatus, AppUser } from '../types';
+import { calculateInvoice, formatCurrency, formatDate } from '../utils';
 import { Plus, Trash2, X, AlertCircle, Sparkles, BookOpen, Camera, Loader2, Upload, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SUPPLY_TEMPLATES, DELIVERY_TEMPLATES, InvoiceTemplate } from '../data/templates';
@@ -551,7 +552,7 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
                     {/* Price */}
                     <div className="w-28">
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
-                        Price ($)
+                        Price (Ksh)
                       </label>
                       <input
                         type="number"
@@ -614,7 +615,7 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
 
                   {/* Realtime sum helper */}
                   <div className="flex justify-end text-xs text-zinc-500 font-mono">
-                    Total: <strong className="ml-1 text-white font-bold">${((item.quantity || 0) * (item.price || 0)).toFixed(2)}</strong>
+                    Total: <strong className="ml-1 text-white font-bold">{formatCurrency((item.quantity || 0) * (item.price || 0))}</strong>
                   </div>
                 </div>
               ))}
@@ -646,7 +647,7 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
 
               <div>
                 <label htmlFor="form-discount" className="block text-xs font-semibold text-zinc-400 mb-1">
-                  Flat Discount ($)
+                  Flat Discount (Ksh)
                 </label>
                 <input
                   id="form-discount"
@@ -757,7 +758,7 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
           <div className="flex md:items-end justify-between md:flex-col font-mono text-sm">
             <span className="text-zinc-500 text-xs">Calculated Total</span>
             <div className="text-xl font-bold text-white">
-              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
+              {formatCurrency(total)}
             </div>
           </div>
 
