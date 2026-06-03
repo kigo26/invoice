@@ -55,6 +55,17 @@ export const deleteInvoiceFromDb = async (id: string) => {
   }
 };
 
+export const purgeInvoicesFromDb = async () => {
+  const path = COLLECTIONS.INVOICES;
+  try {
+    const querySnapshot = await getDocs(collection(db, path));
+    const deletePromises = querySnapshot.docs.map(document => deleteDoc(doc(db, COLLECTIONS.INVOICES, document.id)));
+    await Promise.all(deletePromises);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
 export const getInvoicesFromDb = async (): Promise<Invoice[]> => {
   const path = COLLECTIONS.INVOICES;
   try {

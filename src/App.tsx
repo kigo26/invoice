@@ -11,7 +11,7 @@ import { initAuth, googleSignIn, logout, auth, testConnection } from './lib/auth
 import { User } from 'firebase/auth';
 import { AppUser, UserRole } from './types';
 import { getUserProfile, assignUserRole } from './lib/auth';
-import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb, subscribeToUsers } from './lib/db';
+import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb, subscribeToUsers, purgeInvoicesFromDb } from './lib/db';
 import RoleSelector from './components/RoleSelector';
 import LoginScreen from './components/LoginScreen';
 import UserManagement from './components/UserManagement';
@@ -237,14 +237,14 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  // Reset to default seeds
-  const handleResetToSeeds = () => {
-    Promise.all(SEED_INVOICES.map(inv => saveInvoiceToDb(inv)))
+  // Restore System to Zero
+  const handleRestoreSystem = () => {
+    purgeInvoicesFromDb()
       .then(() => {
-        showToast('Reset complete. Restored baseline ledger content.', 'info');
+        showToast('System restored. Ledger is now empty.', 'info');
       })
       .catch(() => {
-        showToast('Failed to reset ledger.', 'error');
+        showToast('Failed to restore ledger.', 'error');
       });
     setSelectedInvoice(null);
   };
@@ -384,7 +384,7 @@ export default function App() {
                   className="cursor-pointer px-3 py-1.5 bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 hover:text-white border border-[#1F1F1F] rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
                 >
                   <Upload size={13} />
-                  <span className="hidden sm:inline">Restore</span>
+                  <span className="hidden sm:inline">Import</span>
                 </button>
                 <input
                   type="file"
@@ -396,13 +396,13 @@ export default function App() {
 
                 <button
                   id="reset-seeds-btn"
-                  title="Reset Database to Seed State"
+                  title="Restore System to Zero"
                   type="button"
-                  onClick={handleResetToSeeds}
+                  onClick={handleRestoreSystem}
                   className="cursor-pointer px-3 py-1.5 bg-[#141414] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 border border-[#1F1F1F] hover:border-rose-500/20 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
                 >
                   <RotateCcw size={13} />
-                  <span className="hidden sm:inline">Reset Defaults</span>
+                  <span className="hidden sm:inline">Restore</span>
                 </button>
 
                 <div className="h-6 w-[1px] bg-[#1F1F1F] mx-1"></div>
