@@ -18,7 +18,7 @@ export interface LineItem {
   deliveryWeight?: number; // Weight at point of delivery (KGs)
 }
 
-export type InvoiceStatus = 'Paid' | 'Pending' | 'Draft' | 'Overdue';
+export type InvoiceStatus = 'Paid' | 'Pending' | 'Draft' | 'Overdue' | 'Out for Delivery' | 'Delivered';
 
 export interface Invoice {
   id: string;

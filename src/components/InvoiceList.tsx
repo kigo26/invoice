@@ -104,6 +104,20 @@ export default function InvoiceList({
             Draft
           </span>
         );
+      case 'Out for Delivery':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+            Out for Delivery
+          </span>
+        );
+      case 'Delivered':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Delivered
+          </span>
+        );
     }
   };
 
@@ -128,10 +142,10 @@ export default function InvoiceList({
         <div className="flex flex-wrap items-center gap-3">
           {/* Status Select Filter */}
           <div className="flex items-center gap-1 p-1 bg-[#0C0C0C] border border-[#1F1F1F] rounded-lg">
-            {(['All', 'Paid', 'Pending', 'Overdue', 'Draft'] as const).map((status) => (
+            {(['All', 'Paid', 'Pending', 'Out for Delivery', 'Delivered', 'Overdue', 'Draft'] as const).map((status) => (
               <button
                 key={status}
-                id={`filter-btn-${status.toLowerCase()}`}
+                id={`filter-btn-${status.toLowerCase().replace(/ /g, '-')}`}
                 type="button"
                 onClick={() => setStatusFilter(status)}
                 className={`px-3 py-1 text-xs font-medium rounded-md cursor-pointer transition-colors ${

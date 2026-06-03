@@ -11,15 +11,17 @@ import { initAuth, googleSignIn, logout, auth, testConnection } from './lib/auth
 import { User } from 'firebase/auth';
 import { AppUser, UserRole } from './types';
 import { getUserProfile, assignUserRole } from './lib/auth';
-import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb } from './lib/db';
+import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb, subscribeToUsers } from './lib/db';
 import RoleSelector from './components/RoleSelector';
 import LoginScreen from './components/LoginScreen';
 import UserManagement from './components/UserManagement';
+import DeliveryDashboard from './components/DeliveryDashboard';
 
 const LOCAL_STORAGE_KEY = 'invoice_tracker_invoices_data';
 
 export default function App() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [usersList, setUsersList] = useState<AppUser[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
@@ -77,18 +79,22 @@ export default function App() {
 
   // Sync with Firestore
   useEffect(() => {
-    if (appUser && (appUser.role === 'ADMIN' || appUser.isAuthorized)) {
-      const unsubscribe = subscribeToInvoices((data) => {
-        if (data.length === 0 && appUser.role === 'ADMIN') {
-          // Fallback to seeds if empty and admin (optional)
-          // setInvoices(SEED_INVOICES);
-        } else {
-          setInvoices(data);
-        }
+    if (appUser && (appUser.role === 'ADMIN' || appUser.isAuthorized || appUser.role === 'DELIVERY')) {
+      const unsubscribeInvoices = subscribeToInvoices((data) => {
+        setInvoices(data);
       });
-      return () => unsubscribe();
+      
+      const unsubscribeUsers = subscribeToUsers((data) => {
+        setUsersList(data);
+      });
+
+      return () => {
+        unsubscribeInvoices();
+        unsubscribeUsers();
+      };
     } else {
       setInvoices([]);
+      setUsersList([]);
     }
   }, [appUser]);
 
@@ -464,30 +470,39 @@ export default function App() {
       {/* Main Container Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col gap-8 w-full no-print">
         
-        {appUser && (appUser.role === 'ADMIN' || appUser.isAuthorized) ? (
-          <>
-            {/* Real-time stats section */}
-            <StatsDashboard invoices={invoices} />
+        {appUser && (appUser.role === 'ADMIN' || appUser.isAuthorized || appUser.role === 'DELIVERY') ? (
+          appUser.role === 'DELIVERY' ? (
+            <DeliveryDashboard 
+              invoices={invoices} 
+              appUser={appUser} 
+              onSelectInvoice={(inv) => setSelectedInvoice(inv)}
+              onQuickStatusChange={handleQuickStatusChange}
+            />
+          ) : (
+            <>
+              {/* Real-time stats section */}
+              <StatsDashboard invoices={invoices} />
 
-            {/* Invoice List Panel */}
-            <div className="flex-1 min-h-0">
-              <InvoiceList
-                invoices={invoices}
-                appUser={appUser}
-                onSelectInvoice={(inv) => setSelectedInvoice(inv)}
-                onEditInvoice={(inv) => {
-                  setEditingInvoice(inv);
-                  setIsFormOpen(true);
-                }}
-                onDeleteInvoice={confirmDeleteInvoice}
-                onQuickStatusChange={handleQuickStatusChange}
-                onCreateInvoiceTrigger={() => {
-                  setEditingInvoice(null);
-                  setIsFormOpen(true);
-                }}
-              />
-            </div>
-          </>
+              {/* Invoice List Panel */}
+              <div className="flex-1 min-h-0">
+                <InvoiceList
+                  invoices={invoices}
+                  appUser={appUser}
+                  onSelectInvoice={(inv) => setSelectedInvoice(inv)}
+                  onEditInvoice={(inv) => {
+                    setEditingInvoice(inv);
+                    setIsFormOpen(true);
+                  }}
+                  onDeleteInvoice={confirmDeleteInvoice}
+                  onQuickStatusChange={handleQuickStatusChange}
+                  onCreateInvoiceTrigger={() => {
+                    setEditingInvoice(null);
+                    setIsFormOpen(true);
+                  }}
+                />
+              </div>
+            </>
+          )
         ) : (
           <div className="flex-1 flex items-center justify-center py-20">
             <div className="max-w-md w-full bg-[#141414] border border-[#1F1F1F] rounded-3xl p-8 text-center space-y-6">
@@ -548,6 +563,7 @@ export default function App() {
             key="form-drawer"
             invoice={editingInvoice}
             existingInvoices={invoices}
+            deliveryUsers={usersList.filter(u => u.role === 'DELIVERY')}
             onSave={handleSaveInvoice}
             onClose={() => {
               setIsFormOpen(false);

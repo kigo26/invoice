@@ -1,6 +1,6 @@
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
-import { Invoice, LineItem, InvoiceStatus } from '../types';
-import { Plus, Trash2, X, AlertCircle, Sparkles, BookOpen, Camera, Loader2, Upload } from 'lucide-react';
+import { Invoice, LineItem, InvoiceStatus, AppUser } from '../types';
+import { Plus, Trash2, X, AlertCircle, Sparkles, BookOpen, Camera, Loader2, Upload, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SUPPLY_TEMPLATES, DELIVERY_TEMPLATES, InvoiceTemplate } from '../data/templates';
 
@@ -10,9 +10,10 @@ interface InvoiceFormProps {
   onSave: (invoice: Invoice) => void;
   onClose: () => void;
   existingInvoices: Invoice[];
+  deliveryUsers?: AppUser[];
 }
 
-export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices }: InvoiceFormProps) {
+export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices, deliveryUsers = [] }: InvoiceFormProps) {
   const [id, setId] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -353,6 +354,8 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
               >
                 <option value="Draft">Draft</option>
                 <option value="Pending">Pending</option>
+                <option value="Out for Delivery">Out for Delivery</option>
+                <option value="Delivered">Delivered</option>
                 <option value="Paid">Paid</option>
                 <option value="Overdue">Overdue</option>
               </select>
@@ -681,16 +684,34 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
               
               <div>
                 <label htmlFor="form-delivery-person" className="block text-xs font-semibold text-zinc-400 mb-1">
-                  Delivery Person
+                  Delivery Personnel
                 </label>
-                <input
-                  id="form-delivery-person"
-                  type="text"
-                  placeholder="e.g. John Doe"
-                  value={deliveryPerson}
-                  onChange={(e) => setDeliveryPerson(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
-                />
+                <div className="flex gap-2">
+                  <select
+                    id="form-delivery-person-select"
+                    value={deliveryUsers.some(u => u.displayName === deliveryPerson) ? deliveryPerson : ''}
+                    onChange={(e) => setDeliveryPerson(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
+                  >
+                    <option value="">-- Select Personnel --</option>
+                    {deliveryUsers.map(user => (
+                      <option key={user.uid} value={user.displayName || ''}>
+                        {user.displayName}
+                      </option>
+                    ))}
+                    {!deliveryUsers.some(u => u.displayName === deliveryPerson) && deliveryPerson && (
+                      <option value={deliveryPerson}>{deliveryPerson} (Custom)</option>
+                    )}
+                  </select>
+                  <input
+                    id="form-delivery-person-custom"
+                    type="text"
+                    placeholder="Or enter custom name..."
+                    value={deliveryPerson}
+                    onChange={(e) => setDeliveryPerson(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white placeholder-zinc-550 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
+                  />
+                </div>
               </div>
 
               <div>

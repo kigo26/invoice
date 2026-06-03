@@ -128,6 +128,8 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
     Pending: Clock,
     Overdue: AlertTriangle,
     Draft: FileText,
+    'Out for Delivery': Truck,
+    Delivered: CheckCircle,
   };
 
   const statusColors: Record<InvoiceStatus, string> = {
@@ -135,6 +137,8 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
     Pending: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     Overdue: 'text-rose-450 bg-rose-500/10 border-rose-500/20',
     Draft: 'text-zinc-400 bg-[#1C1C1C] border-[#1F1F1F]',
+    'Out for Delivery': 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+    Delivered: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
   };
 
   const StatusIcon = statusIcons[invoice.status];
@@ -222,10 +226,10 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
 
             {/* Quick Status toggle buttons */}
             <div className="flex items-center bg-[#0C0C0C] p-0.5 rounded-lg border border-[#1F1F1F] mr-2">
-              {(['Draft', 'Pending', 'Paid', 'Overdue'] as InvoiceStatus[]).map((st) => (
+              {(['Draft', 'Pending', 'Out for Delivery', 'Delivered', 'Paid'] as InvoiceStatus[]).map((st) => (
                 <button
                   key={st}
-                  id={`status-toggle-${st.toLowerCase()}`}
+                  id={`status-toggle-${st.toLowerCase().replace(/ /g, '-')}`}
                   type="button"
                   onClick={() => onStatusChange(st)}
                   className={`px-2 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${

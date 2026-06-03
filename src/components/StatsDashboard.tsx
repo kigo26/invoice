@@ -42,6 +42,8 @@ export default function StatsDashboard({ invoices }: StatsDashboardProps) {
           acc.paidCount += 1;
           break;
         case 'Pending':
+        case 'Out for Delivery':
+        case 'Delivered':
           acc.pendingTotal += total;
           acc.pendingCount += 1;
           break;
