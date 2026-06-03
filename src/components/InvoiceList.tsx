@@ -336,26 +336,67 @@ export default function InvoiceList({
             </tbody>
           </table>
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-            <div className="w-16 h-16 rounded-3xl bg-[#0C0C0C] flex items-center justify-center text-zinc-500 mb-6 border border-[#1F1F1F] shadow-inner">
-              <Search size={28} className={searchTerm ? 'text-indigo-400' : ''} />
+          <div className="flex flex-col items-center justify-center py-24 px-6 text-center animate-in fade-in duration-700">
+            <div className="relative mb-8">
+              <div className="absolute inset-0 bg-indigo-500/10 blur-3xl rounded-full scale-150 opacity-50"></div>
+              <div className="relative w-24 h-24 rounded-[2rem] bg-gradient-to-br from-[#1A1A1A] to-[#0A0A0A] flex items-center justify-center text-zinc-500 border border-[#1F1F1F] shadow-2xl group overflow-hidden">
+                <div className="absolute inset-0 bg-indigo-500/5 group-hover:opacity-100 transition-opacity"></div>
+                <Search size={40} className={`relative z-10 transition-all duration-500 ${searchTerm ? 'text-indigo-400 scale-110 rotate-3' : 'text-zinc-650 group-hover:text-zinc-400 group-hover:scale-110'}`} />
+                
+                {/* Decorative SVG elements inside the box */}
+                <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-zinc-800"></div>
+                <div className="absolute bottom-4 left-4 w-12 h-1 bg-zinc-900 rounded-full"></div>
+                <div className="absolute bottom-7 left-4 w-8 h-1 bg-zinc-900 rounded-full opacity-50"></div>
+              </div>
             </div>
-            <h3 className="font-bold text-white text-lg tracking-tight">
-              {searchTerm ? 'No matches found' : 'No invoices indexed'}
-            </h3>
-            <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto font-medium">
-              {searchTerm 
-                ? `We couldn't find any invoices matching "${searchTerm}". Try a different name or ID.`
-                : "Your ledger is currently empty. Reset your filters or start by issuing a new invoice."}
-            </p>
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="mt-6 text-indigo-400 hover:text-indigo-300 text-sm font-bold cursor-pointer transition-colors"
-              >
-                Clear Search
-              </button>
-            )}
+
+            <div className="space-y-3 max-w-sm mx-auto">
+              <h3 className="font-bold text-white text-2xl tracking-tight uppercase tracking-[0.1em]">
+                {searchTerm ? 'Zero Matches' : 'Ledger Empty'}
+              </h3>
+              <p className="text-zinc-500 text-sm leading-relaxed font-medium font-mono uppercase tracking-tighter opacity-80">
+                {searchTerm 
+                  ? `Search query [${searchTerm}] yielded no valid records in the current node index.`
+                  : "No financial records detected in the active provision vault. Initialize your first document to begin."}
+              </p>
+            </div>
+
+            <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
+              {searchTerm ? (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="px-8 py-3 bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white hover:border-zinc-700 transition-all cursor-pointer shadow-lg"
+                >
+                  Clear Node Index Search
+                </button>
+              ) : (
+                isAdmin && (
+                  <button
+                    onClick={onCreateInvoiceTrigger}
+                    className="group relative px-8 py-3.5 bg-white text-black font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all hover:bg-indigo-50 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-2xl shadow-indigo-500/10 flex items-center gap-3 overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-white/20 to-indigo-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    <Receipt size={16} className="text-indigo-600" />
+                    <span>Issue First Invoice</span>
+                  </button>
+                )
+              )}
+              
+              {!searchTerm && !isAdmin && (
+                <div className="px-6 py-2 rounded-full border border-zinc-800/50 bg-zinc-900/30 text-[10px] text-zinc-600 font-mono uppercase tracking-[0.2em]">
+                  Awaiting Administration Data Input
+                </div>
+              )}
+            </div>
+
+            {/* Background pattern */}
+            <div className="absolute bottom-0 left-0 right-0 h-1/2 pointer-events-none opacity-20 overflow-hidden">
+               <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="text-zinc-800 stroke-current fill-none">
+                 <path d="M0,100 Q25,80 50,100 T100,100" strokeWidth="0.1" />
+                 <path d="M0,90 Q25,70 50,90 T100,90" strokeWidth="0.1" />
+                 <path d="M0,80 Q25,60 50,80 T100,80" strokeWidth="0.1" />
+               </svg>
+            </div>
           </div>
         )}
       </div>

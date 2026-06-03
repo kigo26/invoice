@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'DELIVERY' | 'SUPPLIER';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'DELIVERY' | 'SUPPLIER';
 
 export interface AppUser {
   uid: string;
@@ -7,6 +7,17 @@ export interface AppUser {
   photoURL: string | null;
   role?: UserRole;
   isAuthorized?: boolean;
+  isDisabled?: boolean;
+}
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  actorId: string;
+  actorName: string;
+  action: string;
+  targetId?: string;
+  details?: string;
 }
 
 export interface LineItem {
@@ -19,6 +30,15 @@ export interface LineItem {
 }
 
 export type InvoiceStatus = 'Paid' | 'Pending' | 'Draft' | 'Overdue' | 'Out for Delivery' | 'Delivered';
+
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  createdAt: string;
+}
 
 export interface Invoice {
   id: string;
@@ -33,6 +53,7 @@ export interface Invoice {
   notes?: string;
   deliveryPerson?: string;
   deliveryNote?: string;
+  deliveryNotes?: string;
   supplierNote?: string;
   spreadsheetId?: string;
   supplierPhotoUrl?: string; // Weighing scale photo from supplier

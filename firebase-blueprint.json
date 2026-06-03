@@ -8,9 +8,25 @@
         "uid": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "displayName": { "type": "string" },
-        "role": { "type": "string", "enum": ["ADMIN", "DELIVERY", "SUPPLIER"] }
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "ADMIN", "DELIVERY", "SUPPLIER"] },
+        "isDisabled": { "type": "boolean" }
       },
       "required": ["uid", "email", "role"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "A record of a system action for security auditing.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "actorId": { "type": "string" },
+        "actorName": { "type": "string" },
+        "action": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "actorId", "action"]
     },
     "Invoice": {
       "title": "Invoice",
@@ -22,19 +38,34 @@
         "clientEmail": { "type": "string", "format": "email" },
         "issueDate": { "type": "string" },
         "dueDate": { "type": "string" },
-        "status": { "type": "string", "enum": ["Paid", "Pending", "Draft", "Overdue"] },
+        "status": { "type": "string", "enum": ["Paid", "Pending", "Draft", "Overdue", "Out for Delivery", "Delivered"] },
         "items": { "type": "array" },
         "taxRate": { "type": "number" },
         "discount": { "type": "number" },
         "notes": { "type": "string" },
         "deliveryPerson": { "type": "string" },
         "deliveryNote": { "type": "string" },
+        "deliveryNotes": { "type": "string" },
         "supplierNote": { "type": "string" },
         "spreadsheetId": { "type": "string" },
         "supplierPhotoUrl": { "type": "string" },
         "deliveryPhotoUrl": { "type": "string" }
       },
       "required": ["id", "clientName", "status", "items"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Contact details and metadata for a business client.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "createdAt"]
     }
   },
   "firestore": {
@@ -45,6 +76,14 @@
     "/invoices/{invoiceId}": {
       "schema": "Invoice",
       "description": "Collection of all invoices."
+    },
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Historical client database."
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "System audit trail."
     }
   }
 }

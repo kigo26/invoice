@@ -11,10 +11,109 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from './auth';
-import { Invoice, AppUser } from '../types';
+import { Invoice, AppUser, Client, AuditLog } from '../types';
 
 const COLLECTIONS = {
   INVOICES: 'invoices',
+  CLIENTS: 'clients',
+  AUDIT_LOGS: 'audit_logs',
+};
+
+export const subscribeToAuditLogs = (callback: (logs: AuditLog[]) => void) => {
+  const path = COLLECTIONS.AUDIT_LOGS;
+  const q = query(collection(db, path), orderBy('timestamp', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const logs = snapshot.docs.map(doc => doc.data() as AuditLog);
+    callback(logs);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+};
+
+export const createAuditLog = async (actor: AppUser, action: string, details?: string, targetId?: string) => {
+  const id = `LOG-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+  const log: AuditLog = {
+    id,
+    timestamp: new Date().toISOString(),
+    actorId: actor.uid,
+    actorName: actor.displayName || actor.email || 'Unknown',
+    action,
+    targetId,
+    details
+  };
+  try {
+    await setDoc(doc(db, COLLECTIONS.AUDIT_LOGS, id), log);
+  } catch (error) {
+    console.error('Failed to create audit log:', error);
+  }
+};
+
+export const updateUserAccountStatus = async (actor: AppUser, targetUid: string, isDisabled: boolean) => {
+  const path = `users/${targetUid}`;
+  try {
+    await updateDoc(doc(db, 'users', targetUid), { isDisabled });
+    await createAuditLog(
+      actor, 
+      isDisabled ? 'ACCOUNT_DISABLED' : 'ACCOUNT_ENABLED', 
+      `Account ${isDisabled ? 'disabled' : 'enabled'} for UID: ${targetUid}`,
+      targetUid
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+};
+
+export const updateUserRole = async (actor: AppUser, targetUid: string, role: string, isAuthorized: boolean) => {
+  const path = `users/${targetUid}`;
+  try {
+    await updateDoc(doc(db, 'users', targetUid), { role, isAuthorized });
+    await createAuditLog(
+      actor, 
+      'ROLE_UPDATED', 
+      `Assigned role [${role}] and auth [${isAuthorized}] to UID: ${targetUid}`,
+      targetUid
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+};
+
+export const subscribeToClients = (callback: (clients: Client[]) => void) => {
+  const path = COLLECTIONS.CLIENTS;
+  const q = query(collection(db, path), orderBy('name', 'asc'));
+  return onSnapshot(q, (snapshot) => {
+    const clients = snapshot.docs.map(doc => doc.data() as Client);
+    callback(clients);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+};
+
+export const saveClientToDb = async (client: Client) => {
+  const path = `${COLLECTIONS.CLIENTS}/${client.id}`;
+  try {
+    await setDoc(doc(db, COLLECTIONS.CLIENTS, client.id), client);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+};
+
+export const updateClientInDb = async (id: string, updates: Partial<Client>) => {
+  const path = `${COLLECTIONS.CLIENTS}/${id}`;
+  try {
+    await updateDoc(doc(db, COLLECTIONS.CLIENTS, id), updates);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+};
+
+export const deleteClientFromDb = async (id: string) => {
+  const path = `${COLLECTIONS.CLIENTS}/${id}`;
+  try {
+    await deleteDoc(doc(db, COLLECTIONS.CLIENTS, id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
 };
 
 export const subscribeToInvoices = (callback: (invoices: Invoice[]) => void) => {
@@ -87,13 +186,4 @@ export const subscribeToUsers = (callback: (users: AppUser[]) => void) => {
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, path);
   });
-};
-
-export const updateUserAuthorization = async (uid: string, isAuthorized: boolean) => {
-  const path = `users/${uid}`;
-  try {
-    await updateDoc(doc(db, 'users', uid), { isAuthorized });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
 };

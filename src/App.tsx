@@ -1,40 +1,43 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
-import { Invoice, InvoiceStatus } from './types';
+import { Invoice, InvoiceStatus, Client } from './types';
 import { calculateInvoice, formatCurrency, formatDate, SEED_INVOICES } from './utils';
 import StatsDashboard from './components/StatsDashboard';
 import InvoiceList from './components/InvoiceList';
 import InvoiceForm from './components/InvoiceForm';
 import InvoiceDetail from './components/InvoiceDetail';
-import { Download, Upload, RotateCcw, Receipt, AlertCircle, Sparkles, CheckCircle2, Info, LogOut, User as UserIcon, Loader2, Shield } from 'lucide-react';
+import { Download, Upload, RotateCcw, Receipt, AlertCircle, Sparkles, CheckCircle2, Info, LogOut, User as UserIcon, Loader2, Shield, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initAuth, googleSignIn, logout, auth, testConnection } from './lib/auth';
 import { User } from 'firebase/auth';
+import { setDoc, doc } from 'firebase/firestore';
 import { AppUser, UserRole } from './types';
-import { getUserProfile, assignUserRole } from './lib/auth';
-import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb, subscribeToUsers, purgeInvoicesFromDb } from './lib/db';
+import { getUserProfile, assignUserRole, db } from './lib/auth';
+import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb, subscribeToUsers, purgeInvoicesFromDb, subscribeToClients } from './lib/db';
 import RoleSelector from './components/RoleSelector';
 import LoginScreen from './components/LoginScreen';
 import UserManagement from './components/UserManagement';
 import DeliveryDashboard from './components/DeliveryDashboard';
+import ClientManagement from './components/ClientManagement';
+
+import SupplierDashboard from './components/SupplierDashboard';
 
 const LOCAL_STORAGE_KEY = 'invoice_tracker_invoices_data';
 
 export default function App() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clientsList, setClientsList] = useState<Client[]>([]);
   const [usersList, setUsersList] = useState<AppUser[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [isUserMgmtOpen, setIsUserMgmtOpen] = useState(false);
+  const [isClientMgmtOpen, setIsClientMgmtOpen] = useState(false);
   
   // Auth state
   const [user, setUser] = useState<User | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [preselectedRole, setPreselectedRole] = useState<UserRole>('ADMIN');
-  const [showRoleSelector, setShowRoleSelector] = useState(false);
-  const [isSettingRole, setIsSettingRole] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Custom toast notification states
@@ -59,7 +62,9 @@ export default function App() {
           if (profile) {
             setAppUser(profile);
           } else {
-            setShowRoleSelector(true);
+            // No record found -> ACCESS DENIED (implicitly by appUser being null)
+            console.warn('Unauthorized login attempt:', authUser.email);
+            setAppUser(null);
           }
         } catch (err) {
           console.error('Error fetching profile:', err);
@@ -71,7 +76,6 @@ export default function App() {
         setUser(null);
         setAppUser(null);
         setAccessToken(null);
-        setShowRoleSelector(false);
         setIsLoading(false);
       }
     );
@@ -79,7 +83,7 @@ export default function App() {
 
   // Sync with Firestore
   useEffect(() => {
-    if (appUser && (appUser.role === 'ADMIN' || appUser.isAuthorized || appUser.role === 'DELIVERY')) {
+    if (appUser && (appUser.role === 'ADMIN' || appUser.isAuthorized || appUser.role === 'DELIVERY' || appUser.role === 'SUPPLIER')) {
       const unsubscribeInvoices = subscribeToInvoices((data) => {
         setInvoices(data);
       });
@@ -88,13 +92,19 @@ export default function App() {
         setUsersList(data);
       });
 
+      const unsubscribeClients = subscribeToClients((data) => {
+        setClientsList(data);
+      });
+
       return () => {
         unsubscribeInvoices();
         unsubscribeUsers();
+        unsubscribeClients();
       };
     } else {
       setInvoices([]);
       setUsersList([]);
+      setClientsList([]);
     }
   }, [appUser]);
 
@@ -265,11 +275,20 @@ export default function App() {
           setAppUser(profile);
           showToast(`Welcome back, ${profile.displayName}`, 'success');
         } else {
-          // Use preselected role if available, otherwise show selector
-          if (preselectedRole) {
-            handleRoleSelect(preselectedRole);
-          } else {
-            setShowRoleSelector(true);
+          // Create a base record for first-time login so admins can see them in UserManagement
+          const newUser: AppUser = {
+            uid: result.user.uid,
+            email: result.user.email,
+            displayName: result.user.displayName,
+            photoURL: result.user.photoURL,
+            role: undefined, // No role assigned yet
+            isAuthorized: false,
+          };
+          try {
+            await setDoc(doc(db, 'users', result.user.uid), newUser);
+            showToast('Account registered. Awaiting admin authorization.', 'info');
+          } catch (err) {
+            console.error('Failed to create initial profile:', err);
           }
         }
       }
@@ -286,35 +305,21 @@ export default function App() {
     }
   };
 
-  const handleRoleSelect = async (role: UserRole) => {
-    if (!user) return;
-    setIsSettingRole(true);
-    try {
-      const profile = await assignUserRole(user, role);
-      setAppUser(profile);
-      setShowRoleSelector(false);
-      showToast(`Role assigned: ${role}.`, 'success');
-    } catch (err) {
-      showToast('Failed to assign role.', 'error');
-    } finally {
-      setIsSettingRole(false);
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await logout();
       setUser(null);
       setAppUser(null);
       setAccessToken(null);
-      setShowRoleSelector(false);
       showToast('Logged out successfully.', 'info');
     } catch (err) {
       showToast('Logout failed.', 'error');
     }
   };
 
-  const isAdmin = appUser?.role === 'ADMIN';
+  const isAdmin = appUser?.role === 'ADMIN' || 
+                  appUser?.role === 'SUPER_ADMIN' || 
+                  ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com'].includes(user?.email || '');
 
   if (isLoading) {
     return (
@@ -332,8 +337,6 @@ export default function App() {
       <LoginScreen 
         onLogin={handleLogin} 
         isLoggingIn={isLoggingIn} 
-        onRolePreselect={setPreselectedRole}
-        preselectedRole={preselectedRole}
       />
     );
   }
@@ -415,7 +418,18 @@ export default function App() {
                   className="cursor-pointer px-3 py-1.5 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 hover:text-indigo-300 border border-indigo-500/20 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
                 >
                   <Shield size={13} strokeWidth={2.5} />
-                  <span className="hidden sm:inline">Authorized Personnel</span>
+                  <span className="hidden sm:inline">Personnel</span>
+                </button>
+
+                <button
+                  id="client-mgmt-btn"
+                  title="Client Management"
+                  type="button"
+                  onClick={() => setIsClientMgmtOpen(true)}
+                  className="cursor-pointer px-3 py-1.5 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                >
+                  <UserIcon size={13} strokeWidth={2.5} />
+                  <span className="hidden sm:inline">Clients</span>
                 </button>
               </>
             )}
@@ -427,11 +441,12 @@ export default function App() {
                 <div className="flex flex-col items-end hidden md:flex">
                   <span className="text-[11px] font-bold text-white leading-none text-right">{appUser.displayName}</span>
                   <span className={`text-[9px] font-mono mt-0.5 px-1.5 py-0.5 rounded-sm border ${
+                    appUser.role === 'SUPER_ADMIN' ? 'text-amber-400 border-amber-400/20 bg-amber-400/5' :
                     appUser.role === 'ADMIN' ? 'text-indigo-400 border-indigo-400/20 bg-indigo-400/5' :
                     appUser.role === 'DELIVERY' ? 'text-emerald-400 border-emerald-400/20 bg-emerald-400/5' :
                     'text-amber-400 border-amber-400/20 bg-amber-400/5'
                   }`}>
-                    {appUser.role}
+                    {appUser.role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : appUser.role}
                   </span>
                 </div>
                 {appUser.photoURL ? (
@@ -478,7 +493,7 @@ export default function App() {
       {/* Main Container Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col gap-8 w-full no-print">
         
-        {appUser && (appUser.role === 'ADMIN' || appUser.isAuthorized || appUser.role === 'DELIVERY') ? (
+        {appUser && !appUser.isDisabled ? (
           appUser.role === 'DELIVERY' ? (
             <DeliveryDashboard 
               invoices={invoices} 
@@ -486,12 +501,18 @@ export default function App() {
               onSelectInvoice={(inv) => setSelectedInvoice(inv)}
               onQuickStatusChange={handleQuickStatusChange}
             />
+          ) : appUser.role === 'SUPPLIER' ? (
+            <SupplierDashboard 
+              invoices={invoices} 
+              appUser={appUser} 
+              onSelectInvoice={(inv) => setSelectedInvoice(inv)}
+              onQuickStatusChange={handleQuickStatusChange}
+            />
           ) : (
             <>
-              {/* Real-time stats section */}
+              {/* ADMIN Dashboard */}
               <StatsDashboard invoices={invoices} />
 
-              {/* Invoice List Panel */}
               <div className="flex-1 min-h-0">
                 <InvoiceList
                   invoices={invoices}
@@ -511,27 +532,57 @@ export default function App() {
               </div>
             </>
           )
-        ) : (
+        ) : appUser?.isDisabled ? (
           <div className="flex-1 flex items-center justify-center py-20">
             <div className="max-w-md w-full bg-[#141414] border border-[#1F1F1F] rounded-3xl p-8 text-center space-y-6">
-              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mx-auto">
-                <AlertCircle size={32} />
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 mx-auto">
+                <Ban size={32} />
               </div>
               <div className="space-y-2">
-                <h2 className="text-xl font-bold text-white uppercase tracking-wider">Access Restricted</h2>
-                <p className="text-xs text-zinc-500 font-mono leading-relaxed">
-                  Your identity has been verified as <span className="text-zinc-300">[{appUser?.role}]</span>, but you have not yet been granted authorization by a system administrator.
-                </p>
+                <h2 className="text-xl font-bold text-white uppercase tracking-wider">Account Deactivated</h2>
+                <div className="text-xs text-zinc-500 font-mono leading-relaxed space-y-2">
+                  <p className="mt-4 pt-4 border-t border-[#1F1F1F]">
+                    Your account ({user.email}) has been flagged and disabled by an administrator. 
+                    Access to ledger nodes is strictly prohibited.
+                  </p>
+                </div>
               </div>
               <div className="pt-4">
                 <button 
                   onClick={handleLogout}
                   className="px-6 py-2.5 bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white hover:border-zinc-700 transition-all cursor-pointer"
                 >
-                  Exit Session
+                  Return to Login
                 </button>
               </div>
-              <p className="text-[10px] text-zinc-700 font-mono uppercase tracking-tighter">Please notify Liliprovisions management to approve your node access.</p>
+              <p className="text-[10px] text-zinc-700 font-mono uppercase tracking-tighter">Please notify system administration if you believe this is an error.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center py-20">
+            <div className="max-w-md w-full bg-[#141414] border border-[#1F1F1F] rounded-3xl p-8 text-center space-y-6">
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 mx-auto">
+                <Shield size={32} />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl font-bold text-white uppercase tracking-wider">Access Denied</h2>
+                <div className="text-xs text-zinc-500 font-mono leading-relaxed space-y-2">
+                  <p>Authentication: <span className="text-emerald-500">PASSED</span></p>
+                  <p>Authorization record: <span className="text-rose-500">NOT FOUND</span></p>
+                  <p className="mt-4 pt-4 border-t border-[#1F1F1F]">
+                    Your account ({user.email}) is not registered in the Liliprovisions Authority Index.
+                  </p>
+                </div>
+              </div>
+              <div className="pt-4">
+                <button 
+                  onClick={handleLogout}
+                  className="px-6 py-2.5 bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white hover:border-zinc-700 transition-all cursor-pointer"
+                >
+                  Return to Login
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-700 font-mono uppercase tracking-tighter">Please notify system administration to white-list your UID.</p>
             </div>
           </div>
         )}
@@ -540,8 +591,23 @@ export default function App() {
 
       {/* Authority Control Drawer */}
       <AnimatePresence>
-        {isUserMgmtOpen && (
-          <UserManagement onClose={() => setIsUserMgmtOpen(false)} />
+        {isUserMgmtOpen && appUser && (
+          <UserManagement onClose={() => setIsUserMgmtOpen(false)} currentUser={appUser} />
+        )}
+      </AnimatePresence>
+
+      {/* Client Management Drawer */}
+      <AnimatePresence>
+        {isClientMgmtOpen && (
+          <ClientManagement 
+            clients={clientsList} 
+            invoices={invoices} 
+            onClose={() => setIsClientMgmtOpen(false)} 
+            onSelectInvoice={(inv) => {
+              setSelectedInvoice(inv);
+              setIsClientMgmtOpen(false);
+            }} 
+          />
         )}
       </AnimatePresence>
 
@@ -572,6 +638,7 @@ export default function App() {
             invoice={editingInvoice}
             existingInvoices={invoices}
             deliveryUsers={usersList.filter(u => u.role === 'DELIVERY')}
+            clients={clientsList}
             onSave={handleSaveInvoice}
             onClose={() => {
               setIsFormOpen(false);
@@ -580,11 +647,6 @@ export default function App() {
           />
         )}
       </AnimatePresence>
-
-      {/* Role Selection Overlay */}
-      {showRoleSelector && (
-        <RoleSelector onSelect={handleRoleSelect} isProcessing={isSettingRole} />
-      )}
 
       {/* Interactive Custom Confirm Deletion Panel overlay inside standard client view */}
       <AnimatePresence>
@@ -669,7 +731,7 @@ export default function App() {
             <div className="flex items-center justify-between pb-6 border-b border-light-grey mb-6">
               <div>
                 <h1 className="text-lg font-bold text-slate-900">Liliprovisions Ltd</h1>
-                <p className="text-xs text-slate-400">VAT: US-8921104-B</p>
+                <p className="text-xs text-slate-400">PIN: P051674312Q</p>
               </div>
               <div className="text-right">
                 <h2 className="text-lg font-bold tracking-widest text-slate-700">INVOICE PREVIEW</h2>
@@ -683,6 +745,7 @@ export default function App() {
                   <th className="py-2">Item</th>
                   <th className="py-2 text-center">Qty</th>
                   <th className="py-2 text-right">Price</th>
+                  <th className="py-2 text-right">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray">
@@ -691,9 +754,31 @@ export default function App() {
                     <td className="py-2">{item.description}</td>
                     <td className="py-2 text-center">{item.quantity}</td>
                     <td className="py-2 text-right">{formatCurrency(item.price)}</td>
+                    <td className="py-2 text-right">{formatCurrency(item.quantity * item.price)}</td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                {(() => {
+                  const { subtotal, taxAmount, total } = calculateInvoice(selectedInvoice);
+                  return (
+                    <>
+                      <tr className="border-t border-gray">
+                        <td colSpan={3} className="py-2 text-right font-bold text-[10px] text-slate-500 uppercase">Subtotal</td>
+                        <td className="py-2 text-right font-mono">{formatCurrency(subtotal)}</td>
+                      </tr>
+                      <tr>
+                        <td colSpan={3} className="py-1 text-right font-bold text-[10px] text-slate-500 uppercase">VAT (16%)</td>
+                        <td className="py-1 text-right font-mono">{formatCurrency(taxAmount)}</td>
+                      </tr>
+                      <tr className="border-t-2 border-slate-900 font-bold">
+                        <td colSpan={3} className="py-3 text-right text-[12px] text-slate-900 uppercase">Total Due</td>
+                        <td className="py-3 text-right text-[14px] text-slate-900">{formatCurrency(total)}</td>
+                      </tr>
+                    </>
+                  );
+                })()}
+              </tfoot>
             </table>
           </div>
         </div>

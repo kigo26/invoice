@@ -18,8 +18,31 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
+    function isActive() {
+      return isSignedIn() && userExists() && (!getUserData().keys().contains('isDisabled') || getUserData().isDisabled == false);
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        (isActive() && getUserData().role == 'SUPER_ADMIN') ||
+        request.auth.token.email in ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com']
+      );
+    }
+
     function isAdmin() {
-      return isSignedIn() && userExists() && getUserData().role == 'ADMIN';
+      return isSuperAdmin() || (isActive() && getUserData().role == 'ADMIN');
+    }
+
+    function isAuthorized() {
+      return isAdmin() || (isActive() && (getUserData().isAuthorized == true || getUserData().role in ['DELIVERY', 'SUPPLIER']));
+    }
+
+    function isValidClient(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'createdAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 256 &&
+             data.email is string && data.email.size() <= 256 &&
+             data.createdAt is string && data.createdAt.size() <= 128;
     }
 
     match /users/{userId} {
@@ -27,22 +50,44 @@ service cloud.firestore {
       // Admins can read all profiles.
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       
-      // Allow user to create their own profile.
-      allow create: if isSignedIn() && request.auth.uid == userId;
+      // Allow user to create their own profile. Default role must not be admin.
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                    !request.resource.data.keys().hasAny(['role', 'isAuthorized', 'isDisabled']);
       
-      // Allow user to update their own profile (but not their role/authorization unless admin).
-      // Admins can update any profile.
+      // Super Admin can update anything.
+      // Admins can manage non-admin roles (except promoting to admin or disabling).
+      // Users can update their own public profile info.
       allow update: if isSignedIn() && (
-        isAdmin() || (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAuthorized']))
+        isSuperAdmin() || 
+        (isAdmin() && 
+          // Targeted user is not a super/admin
+          (resource.data.keys().contains('role') == false || (resource.data.role != 'SUPER_ADMIN' && resource.data.role != 'ADMIN')) && 
+          // Admin cannot change isDisabled (Super Admin only)
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isDisabled']) &&
+          // Admin cannot promote user to admin or super admin
+          (!request.resource.data.keys().contains('role') || (request.resource.data.role != 'ADMIN' && request.resource.data.role != 'SUPER_ADMIN'))
+        ) ||
+        (request.auth.uid == userId && isActive() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAuthorized', 'isDisabled']))
       );
     }
 
     match /invoices/{invoiceId} {
-      // Allow read if admin or authorized personnel.
-      allow read: if isSignedIn() && (isAdmin() || getUserData().isAuthorized == true);
-      
-      // Only admins can write (create/update/delete) invoices.
+      allow read: if isAuthorized();
       allow write: if isAdmin();
+    }
+
+    match /clients/{clientId} {
+      allow read: if isAuthorized();
+      allow create: if isAdmin() && isValidClient(request.resource.data);
+      allow update: if isAdmin() && isValidClient(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      // Writing to logs should be done during operations. 
+      // For security, we allow any admin to append logs.
+      allow create: if isAdmin();
     }
   }
 }

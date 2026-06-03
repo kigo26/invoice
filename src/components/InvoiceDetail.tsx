@@ -354,7 +354,7 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
                   <span>Liliprovisions Ltd</span>
                 </div>
                 <div className="text-xs text-zinc-500 font-mono font-medium">
-                  VAT: US-8921104-B
+                  PIN: P051674312Q
                 </div>
               </div>
 
@@ -375,8 +375,8 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
                 <span className="text-[10px] uppercase font-bold text-zinc-550 tracking-widest font-mono">Billed From</span>
                 <div className="font-bold text-white">Liliprovisions Ltd</div>
                 <div className="text-xs text-zinc-400 leading-relaxed">
-                  450 Tech Hub Parkway, Suite 1200<br />
-                  San Francisco, CA 94107 USA<br />
+                  Liaison House, 4th Floor<br />
+                  State House Avenue, Nairobi, Kenya<br />
                   <span className="font-mono text-zinc-500">accounts@liliprovisions.co.ke</span>
                 </div>
               </div>
@@ -584,18 +584,10 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
                     <span>Subtotal:</span>
                     <span className="text-white font-semibold">{formatCurrency(subtotal)}</span>
                   </div>
-                  {invoice.taxRate > 0 && (
-                    <div className="flex justify-between">
-                      <span>Tax ({invoice.taxRate}%):</span>
-                      <span className="text-white font-semibold">+{formatCurrency(taxAmount)}</span>
-                    </div>
-                  )}
-                  {invoice.discount > 0 && (
-                    <div className="flex justify-between text-emerald-400">
-                      <span>Discount:</span>
-                      <span className="font-semibold">-{formatCurrency(invoice.discount)}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between">
+                    <span>VAT (16%):</span>
+                    <span className="text-white font-semibold">+{formatCurrency(taxAmount)}</span>
+                  </div>
                   <div className="flex justify-between text-sm pt-2.5 border-t border-[#1F1F1F] font-sans text-white">
                     <span className="font-bold">Total Due:</span>
                     <span className="font-bold text-base text-indigo-400 font-mono">{formatCurrency(total)}</span>

@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
-import { Invoice, LineItem, InvoiceStatus, AppUser } from '../types';
+import { Invoice, LineItem, InvoiceStatus, AppUser, Client } from '../types';
 import { calculateInvoice, formatCurrency, formatDate } from '../utils';
 import { Plus, Trash2, X, AlertCircle, Sparkles, BookOpen, Camera, Loader2, Upload, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,21 +12,23 @@ interface InvoiceFormProps {
   onClose: () => void;
   existingInvoices: Invoice[];
   deliveryUsers?: AppUser[];
+  clients?: Client[];
 }
 
-export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices, deliveryUsers = [] }: InvoiceFormProps) {
+export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices, deliveryUsers = [], clients = [] }: InvoiceFormProps) {
   const [id, setId] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState<InvoiceStatus>('Pending');
-  const [taxRate, setTaxRate] = useState<number>(0);
+  const [taxRate, setTaxRate] = useState<number>(16);
   const [discount, setDiscount] = useState<number>(0);
   const [items, setItems] = useState<LineItem[]>([]);
   const [notes, setNotes] = useState('');
   const [deliveryPerson, setDeliveryPerson] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
   const [supplierNote, setSupplierNote] = useState('');
   const [spreadsheetId, setSpreadsheetId] = useState('');
 
@@ -89,7 +91,7 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
   // Auto-generate ID on create
   useEffect(() => {
     if (invoice) {
-      // Edit mode: populate existing values
+       // Edit mode: populate existing values
       setId(invoice.id);
       setClientName(invoice.clientName);
       setClientEmail(invoice.clientEmail);
@@ -102,16 +104,40 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
       setNotes(invoice.notes || '');
       setDeliveryPerson(invoice.deliveryPerson || '');
       setDeliveryNote(invoice.deliveryNote || '');
+      setDeliveryNotes(invoice.deliveryNotes || '');
       setSupplierNote(invoice.supplierNote || '');
       setSpreadsheetId(invoice.spreadsheetId || '');
     } else {
-      // Create mode
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const randomNum = Math.floor(100+ Math.random() * 900); // 3 digit random
-      const count = existingInvoices.length + 1;
-      const proposedId = `INV-${currentYear}-${String(count).padStart(3, '0')}-${randomNum}`;
+      // Create mode - Generate next sequential ID
+      const generateNextId = (invoices: Invoice[]) => {
+        if (invoices.length === 0) return `INV-${new Date().getFullYear()}-001`;
+        
+        let maxNum = 0;
+        let year = new Date().getFullYear();
+
+        invoices.forEach(inv => {
+          const parts = inv.id.split('-');
+          // Pattern: INV-YYYY-XXX
+          if (parts.length >= 3) {
+            const num = parseInt(parts[2]);
+            if (!isNaN(num) && num > maxNum) {
+              maxNum = num;
+              const yNum = parseInt(parts[1]);
+              if (!isNaN(yNum) && yNum > 2000) year = yNum;
+            }
+          } else if (parts.length === 2) {
+            // Pattern: INV-XXX
+            const num = parseInt(parts[1]);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        });
+
+        return `INV-${year}-${String(maxNum + 1).padStart(3, '0')}`;
+      };
+
+      const proposedId = generateNextId(existingInvoices);
       
+      const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
       const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       const thirtyDaysLaterStr = thirtyDaysLater.toISOString().split('T')[0];
@@ -122,16 +148,17 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
       setIssueDate(todayStr);
       setDueDate(thirtyDaysLaterStr);
       setStatus('Pending');
-      setTaxRate(8); // Default state/tax
+      setTaxRate(16); // Default VAT
       setDiscount(0);
       setItems([{ id: '1', description: 'Consulting & Implementation Services', quantity: 1, price: 1500 }]);
       setNotes('');
       setDeliveryPerson('');
       setDeliveryNote('DELIVERY NOTE\n\nDelivery Note No: ___________________________\n\nDate: ______________________________________\n\nSupplier: __________________________________\n\nDelivered To: Liliprovisions Limited\n\nVehicle Registration: ______________________\n\nDriver Name: _______________________________\n\nItems Delivered\n\n| Item Description | Quantity Ordered (Kg) | Quantity Delivered (Kg) |\n| ---------------- | --------------------- | ----------------------- |\n| Beef Carcass     |                       |                         |\n| Goat Meat        |                       |                         |\n| Beef Mince       |                       |                         |\n| Other            |                       |                         |\n\nTotal Quantity Delivered: __________________ Kg\n\nDelivery Time: _____________________________\n\nCondition of Goods\n\n☐ Good\n\n☐ Damaged\n\nRemarks:\n\n---\n\n---\n\nDelivered By\n\nName: __________________________\n\nSignature: _____________________\n\nDate: __________________________\n\nReceived By\n\nName: __________________________\n\nSignature: _____________________\n\nDate: __________________________\n\nCompany Stamp:');
+      setDeliveryNotes('');
       setSupplierNote('MEAT SUPPLY NOTE\n\nSupplier Name: ______________________________\n\nAddress: ____________________________________\n\nPhone: ______________________________________\n\nSupply Note No: _____________________________\n\nDate: _______________________________________\n\nCustomer Name: Liliprovisions Limited\n\nContact Person: _____________________________\n\nPhone: ______________________________________\n\nDescription of Meat Supplied\n\n| Item Description | Quantity (Kg) |\n| ---------------- | ------------- |\n| Beef Carcass     |               |\n| Goat Meat        |               |\n| Beef Mince       |               |\n| Other            |               |\n\nRemarks:\n\n---\n\n---\n\nSupplier Representative\n\nName: __________________________\n\nSignature: _____________________\n\nDate: __________________________\n\nCustomer Representative\n\nName: __________________________\n\nSignature: _____________________\n\nDate Received: _________________');
       setSpreadsheetId('');
     }
-  }, [invoice, existingInvoices.length]);
+  }, [invoice, existingInvoices]);
 
   // Sync Due Date 30-day offset if Issue Date moves and Due Date hasn't been custom selected
   const handleIssueDateChange = (val: string) => {
@@ -239,12 +266,13 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
       issueDate,
       dueDate,
       status,
-      taxRate: Number(taxRate) || 0,
-      discount: Number(discount) || 0,
+      taxRate: 16, // Enforce 16% VAT
+      discount: 0, // No discount
       items,
       notes: notes.trim() || undefined,
       deliveryPerson: deliveryPerson.trim() || undefined,
       deliveryNote: deliveryNote.trim() || undefined,
+      deliveryNotes: deliveryNotes.trim() || undefined,
       supplierNote: supplierNote.trim() || undefined,
       spreadsheetId: spreadsheetId || undefined,
     };
@@ -336,8 +364,8 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
                 value={id}
                 onChange={(e) => setId(e.target.value)}
                 placeholder="INV-2026-0001"
-                disabled={!!invoice} // Lock key ID if editing to prevent corruption
-                className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white placeholder-zinc-550 disabled:bg-[#0C0C0C] disabled:text-zinc-500 disabled:cursor-not-allowed focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden font-mono"
+                disabled={true} // Auto-generated and locked to ensure database integrity
+                className="w-full px-3 py-2 bg-[#0C0C0C] border border-[#1F1F1F] rounded-lg text-sm text-zinc-400 placeholder-zinc-550 disabled:cursor-not-allowed focus:outline-hidden font-mono"
               />
               {errors.id && <p className="text-rose-450 text-xs mt-1 font-sans">{errors.id}</p>}
             </div>
@@ -363,11 +391,31 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
             </div>
           </div>
 
-          {/* Client Details */}
-          <div className="space-y-4 pt-4 border-t border-[#1F1F1F]">
-            <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest font-mono">
-              Client Details
-            </h3>
+            {/* Client Details */}
+            <div className="space-y-4 pt-4 border-t border-[#1F1F1F]">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest font-mono">
+                  Client Details
+                </h3>
+                {clients.length > 0 && !invoice && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] text-zinc-500 font-mono">Quick Load:</label>
+                    <select
+                      onChange={(e) => {
+                        const selected = clients.find(c => c.id === e.target.value);
+                        if (selected) {
+                          setClientName(selected.name);
+                          setClientEmail(selected.email);
+                        }
+                      }}
+                      className="bg-[#141414] border border-[#1F1F1F] rounded px-2 py-0.5 text-[10px] text-zinc-400 focus:outline-hidden"
+                    >
+                      <option value="">-- Choose Client --</option>
+                      {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -622,50 +670,14 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
             </div>
           </div>
 
-          {/* Tax, Discounts & Notes */}
+          {/* Notes & payment details */}
           <div className="space-y-4 pt-4 border-t border-[#1F1F1F]">
             <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest font-mono">
-              Adjustments
+              Terms & Notes
             </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="form-tax-rate" className="block text-xs font-semibold text-zinc-400 mb-1">
-                  Tax Rate (%)
-                </label>
-                <input
-                  id="form-tax-rate"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="0"
-                  value={taxRate || ''}
-                  onChange={(e) => setTaxRate(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="form-discount" className="block text-xs font-semibold text-zinc-400 mb-1">
-                  Flat Discount (Ksh)
-                </label>
-                <input
-                  id="form-discount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0"
-                  value={discount || ''}
-                  onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
-                />
-              </div>
-            </div>
-
-            {/* Notes & payment details */}
-            <div className="pt-2">
+            <div className="pt-0">
               <label htmlFor="form-notes" className="block text-xs font-semibold text-zinc-400 mb-1">
-                Terms and Notes
+                General Notes
               </label>
               <textarea
                 id="form-notes"
@@ -676,79 +688,93 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
                 className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
               />
             </div>
+          </div>
 
-            {/* Delivery Details */}
-            <div className="space-y-4 pt-4 border-t border-[#1F1F1F]">
-              <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest font-mono">
-                Delivery Documentation
-              </h3>
-              
-              <div>
-                <label htmlFor="form-delivery-person" className="block text-xs font-semibold text-zinc-400 mb-1">
-                  Delivery Personnel
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    id="form-delivery-person-select"
-                    value={deliveryUsers.some(u => u.displayName === deliveryPerson) ? deliveryPerson : ''}
-                    onChange={(e) => setDeliveryPerson(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
-                  >
-                    <option value="">-- Select Personnel --</option>
-                    {deliveryUsers.map(user => (
-                      <option key={user.uid} value={user.displayName || ''}>
-                        {user.displayName}
-                      </option>
-                    ))}
-                    {!deliveryUsers.some(u => u.displayName === deliveryPerson) && deliveryPerson && (
-                      <option value={deliveryPerson}>{deliveryPerson} (Custom)</option>
-                    )}
-                  </select>
-                  <input
-                    id="form-delivery-person-custom"
-                    type="text"
-                    placeholder="Or enter custom name..."
-                    value={deliveryPerson}
-                    onChange={(e) => setDeliveryPerson(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white placeholder-zinc-550 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="form-delivery-note" className="block text-xs font-semibold text-zinc-400 mb-1">
-                  Delivery Note to Client
-                </label>
-                <textarea
-                  id="form-delivery-note"
-                  rows={2}
-                  placeholder="e.g. Left at side gate, confirmed temperature at 4°C."
-                  value={deliveryNote}
-                  onChange={(e) => setDeliveryNote(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
+          {/* Delivery Details */}
+          <div className="space-y-4 pt-4 border-t border-[#1F1F1F]">
+            <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest font-mono">
+              Delivery Documentation
+            </h3>
+            
+            <div>
+              <label htmlFor="form-delivery-person" className="block text-xs font-semibold text-zinc-400 mb-1">
+                Delivery Personnel
+              </label>
+              <div className="flex gap-2">
+                <select
+                  id="form-delivery-person-select"
+                  value={deliveryUsers.some(u => u.displayName === deliveryPerson) ? deliveryPerson : ''}
+                  onChange={(e) => setDeliveryPerson(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
+                >
+                  <option value="">-- Select Personnel --</option>
+                  {deliveryUsers.map(user => (
+                    <option key={user.uid} value={user.displayName || ''}>
+                      {user.displayName}
+                    </option>
+                  ))}
+                  {!deliveryUsers.some(u => u.displayName === deliveryPerson) && deliveryPerson && (
+                    <option value={deliveryPerson}>{deliveryPerson} (Custom)</option>
+                  )}
+                </select>
+                <input
+                  id="form-delivery-person-custom"
+                  type="text"
+                  placeholder="Or enter custom name..."
+                  value={deliveryPerson}
+                  onChange={(e) => setDeliveryPerson(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white placeholder-zinc-550 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
                 />
               </div>
             </div>
 
-            {/* Supplier Details */}
-            <div className="space-y-4 pt-4 border-t border-[#1F1F1F]">
-              <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest font-mono">
-                Supplier Documentation
-              </h3>
-              
-              <div>
-                <label htmlFor="form-supplier-note" className="block text-xs font-semibold text-zinc-400 mb-1">
-                  Supplier Meat KGs / Supply Note
-                </label>
-                <textarea
-                  id="form-supplier-note"
-                  rows={2}
-                  placeholder="e.g. Supplier to deliver 50kg beef, 20kg chicken."
-                  value={supplierNote}
-                  onChange={(e) => setSupplierNote(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
-                />
-              </div>
+            <div>
+              <label htmlFor="form-delivery-note" className="block text-xs font-semibold text-zinc-400 mb-1">
+                Delivery Note to Client
+              </label>
+              <textarea
+                id="form-delivery-note"
+                rows={2}
+                placeholder="e.g. Left at side gate, confirmed temperature at 4°C."
+                value={deliveryNote}
+                onChange={(e) => setDeliveryNote(e.target.value)}
+                className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden mb-3"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="form-delivery-notes" className="block text-xs font-semibold text-zinc-400 mb-1">
+                Special Delivery Instructions
+              </label>
+              <textarea
+                id="form-delivery-notes"
+                rows={2}
+                placeholder="e.g. Call before arrival, use back entrance."
+                value={deliveryNotes}
+                onChange={(e) => setDeliveryNotes(e.target.value)}
+                className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
+              />
+            </div>
+          </div>
+
+          {/* Supplier Details */}
+          <div className="space-y-4 pt-4 border-t border-[#1F1F1F]">
+            <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest font-mono">
+              Supplier Documentation
+            </h3>
+            
+            <div>
+              <label htmlFor="form-supplier-note" className="block text-xs font-semibold text-zinc-400 mb-1">
+                Supplier Meat KGs / Supply Note
+              </label>
+              <textarea
+                id="form-supplier-note"
+                rows={2}
+                placeholder="e.g. Supplier to deliver 50kg beef, 20kg chicken."
+                value={supplierNote}
+                onChange={(e) => setSupplierNote(e.target.value)}
+                className="w-full px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
+              />
             </div>
           </div>
         </form>
