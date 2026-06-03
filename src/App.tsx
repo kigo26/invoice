@@ -1,24 +1,24 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
-import { Invoice, InvoiceStatus, Client } from './types';
+import { Invoice, InvoiceStatus, Client, Supplier, DeliveryPerson, AppUser, UserRole } from './types';
 import { calculateInvoice, formatCurrency, formatDate, SEED_INVOICES } from './utils';
 import StatsDashboard from './components/StatsDashboard';
 import InvoiceList from './components/InvoiceList';
 import InvoiceForm from './components/InvoiceForm';
 import InvoiceDetail from './components/InvoiceDetail';
-import { Download, Upload, RotateCcw, Receipt, AlertCircle, Sparkles, CheckCircle2, Info, LogOut, User as UserIcon, Loader2, Shield, Ban } from 'lucide-react';
+import { Download, Upload, RotateCcw, Receipt, AlertCircle, Sparkles, CheckCircle2, Info, LogOut, User as UserIcon, Loader2, Shield, Ban, Truck, Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initAuth, googleSignIn, logout, auth, testConnection } from './lib/auth';
 import { User } from 'firebase/auth';
 import { setDoc, doc } from 'firebase/firestore';
-import { AppUser, UserRole } from './types';
 import { getUserProfile, assignUserRole, db } from './lib/auth';
-import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb, subscribeToUsers, purgeInvoicesFromDb, subscribeToClients } from './lib/db';
+import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb, subscribeToUsers, purgeInvoicesFromDb, subscribeToClients, subscribeToSuppliers, subscribeToDeliveryPartners } from './lib/db';
 import RoleSelector from './components/RoleSelector';
 import LoginScreen from './components/LoginScreen';
 import UserManagement from './components/UserManagement';
 import DeliveryDashboard from './components/DeliveryDashboard';
 import ClientManagement from './components/ClientManagement';
-
+import SupplierManagement from './components/SupplierManagement';
+import DeliveryManagement from './components/DeliveryManagement';
 import SupplierDashboard from './components/SupplierDashboard';
 
 const LOCAL_STORAGE_KEY = 'invoice_tracker_invoices_data';
@@ -26,12 +26,16 @@ const LOCAL_STORAGE_KEY = 'invoice_tracker_invoices_data';
 export default function App() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clientsList, setClientsList] = useState<Client[]>([]);
+  const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
+  const [deliveryPartnersList, setDeliveryPartnersList] = useState<DeliveryPerson[]>([]);
   const [usersList, setUsersList] = useState<AppUser[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [isUserMgmtOpen, setIsUserMgmtOpen] = useState(false);
   const [isClientMgmtOpen, setIsClientMgmtOpen] = useState(false);
+  const [isSupplierMgmtOpen, setIsSupplierMgmtOpen] = useState(false);
+  const [isDeliveryMgmtOpen, setIsDeliveryMgmtOpen] = useState(false);
   
   // Auth state
   const [user, setUser] = useState<User | null>(null);
@@ -96,15 +100,27 @@ export default function App() {
         setClientsList(data);
       });
 
+      const unsubscribeSuppliers = subscribeToSuppliers((data) => {
+        setSuppliersList(data);
+      });
+
+      const unsubscribeDeliveryPartners = subscribeToDeliveryPartners((data) => {
+        setDeliveryPartnersList(data);
+      });
+
       return () => {
         unsubscribeInvoices();
         unsubscribeUsers();
         unsubscribeClients();
+        unsubscribeSuppliers();
+        unsubscribeDeliveryPartners();
       };
     } else {
       setInvoices([]);
       setUsersList([]);
       setClientsList([]);
+      setSuppliersList([]);
+      setDeliveryPartnersList([]);
     }
   }, [appUser]);
 
@@ -431,6 +447,28 @@ export default function App() {
                   <UserIcon size={13} strokeWidth={2.5} />
                   <span className="hidden sm:inline">Clients</span>
                 </button>
+
+                <button
+                  id="supplier-mgmt-btn"
+                  title="Supplier Management"
+                  type="button"
+                  onClick={() => setIsSupplierMgmtOpen(true)}
+                  className="cursor-pointer px-3 py-1.5 bg-amber-600/10 hover:bg-amber-600/20 text-amber-400 hover:text-amber-300 border border-amber-500/20 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                >
+                  <Truck size={13} strokeWidth={2.5} />
+                  <span className="hidden sm:inline">Suppliers</span>
+                </button>
+
+                <button
+                  id="delivery-mgmt-btn"
+                  title="Delivery Management"
+                  type="button"
+                  onClick={() => setIsDeliveryMgmtOpen(true)}
+                  className="cursor-pointer px-3 py-1.5 bg-sky-600/10 hover:bg-sky-600/20 text-sky-400 hover:text-sky-300 border border-sky-500/20 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                >
+                  <Navigation size={13} strokeWidth={2.5} />
+                  <span className="hidden sm:inline">Delivery</span>
+                </button>
               </>
             )}
 
@@ -607,6 +645,26 @@ export default function App() {
               setSelectedInvoice(inv);
               setIsClientMgmtOpen(false);
             }} 
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Supplier Management Drawer */}
+      <AnimatePresence>
+        {isSupplierMgmtOpen && (
+          <SupplierManagement 
+            suppliers={suppliersList} 
+            onClose={() => setIsSupplierMgmtOpen(false)} 
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Delivery Management Drawer */}
+      <AnimatePresence>
+        {isDeliveryMgmtOpen && (
+          <DeliveryManagement 
+            partners={deliveryPartnersList} 
+            onClose={() => setIsDeliveryMgmtOpen(false)} 
           />
         )}
       </AnimatePresence>

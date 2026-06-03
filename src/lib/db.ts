@@ -11,11 +11,13 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from './auth';
-import { Invoice, AppUser, Client, AuditLog } from '../types';
+import { Invoice, AppUser, Client, AuditLog, Supplier, DeliveryPerson } from '../types';
 
 const COLLECTIONS = {
   INVOICES: 'invoices',
   CLIENTS: 'clients',
+  SUPPLIERS: 'suppliers',
+  DELIVERY_PARTNERS: 'delivery_partners',
   AUDIT_LOGS: 'audit_logs',
 };
 
@@ -111,6 +113,64 @@ export const deleteClientFromDb = async (id: string) => {
   const path = `${COLLECTIONS.CLIENTS}/${id}`;
   try {
     await deleteDoc(doc(db, COLLECTIONS.CLIENTS, id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
+export const subscribeToSuppliers = (callback: (suppliers: Supplier[]) => void) => {
+  const path = COLLECTIONS.SUPPLIERS;
+  const q = query(collection(db, path), orderBy('name', 'asc'));
+  return onSnapshot(q, (snapshot) => {
+    const suppliers = snapshot.docs.map(doc => doc.data() as Supplier);
+    callback(suppliers);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+};
+
+export const saveSupplierToDb = async (supplier: Supplier) => {
+  const path = `${COLLECTIONS.SUPPLIERS}/${supplier.id}`;
+  try {
+    await setDoc(doc(db, COLLECTIONS.SUPPLIERS, supplier.id), supplier);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+};
+
+export const deleteSupplierFromDb = async (id: string) => {
+  const path = `${COLLECTIONS.SUPPLIERS}/${id}`;
+  try {
+    await deleteDoc(doc(db, COLLECTIONS.SUPPLIERS, id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
+export const subscribeToDeliveryPartners = (callback: (partners: DeliveryPerson[]) => void) => {
+  const path = COLLECTIONS.DELIVERY_PARTNERS;
+  const q = query(collection(db, path), orderBy('name', 'asc'));
+  return onSnapshot(q, (snapshot) => {
+    const partners = snapshot.docs.map(doc => doc.data() as DeliveryPerson);
+    callback(partners);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+};
+
+export const saveDeliveryPartnerToDb = async (partner: DeliveryPerson) => {
+  const path = `${COLLECTIONS.DELIVERY_PARTNERS}/${partner.id}`;
+  try {
+    await setDoc(doc(db, COLLECTIONS.DELIVERY_PARTNERS, partner.id), partner);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+};
+
+export const deleteDeliveryPartnerFromDb = async (id: string) => {
+  const path = `${COLLECTIONS.DELIVERY_PARTNERS}/${id}`;
+  try {
+    await deleteDoc(doc(db, COLLECTIONS.DELIVERY_PARTNERS, id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }

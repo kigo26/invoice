@@ -83,6 +83,20 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /suppliers/{supplierId} {
+      allow read: if isAuthorized();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /delivery_partners/{partnerId} {
+      allow read: if isAuthorized();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     match /audit_logs/{logId} {
       allow read: if isSuperAdmin();
       // Writing to logs should be done during operations. 

@@ -40,6 +40,25 @@ export interface Client {
   createdAt: string;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  category?: string;
+  createdAt: string;
+}
+
+export interface DeliveryPerson {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  vehicleId?: string;
+  createdAt: string;
+}
+
 export interface Invoice {
   id: string;
   clientName: string;

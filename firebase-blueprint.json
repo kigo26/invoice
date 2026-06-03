@@ -66,6 +66,35 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "name", "email", "createdAt"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Contact details and metadata for a supply partner.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "createdAt"]
+    },
+    "DeliveryPerson": {
+      "title": "DeliveryPerson",
+      "description": "Contact details and metadata for a delivery scout.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "createdAt"]
     }
   },
   "firestore": {
@@ -80,6 +109,14 @@
     "/clients/{clientId}": {
       "schema": "Client",
       "description": "Historical client database."
+    },
+    "/suppliers/{supplierId}": {
+      "schema": "Supplier",
+      "description": "Historical supplier database."
+    },
+    "/delivery_partners/{partnerId}": {
+      "schema": "DeliveryPerson",
+      "description": "Historical delivery partner database."
     },
     "/audit_logs/{logId}": {
       "schema": "AuditLog",
