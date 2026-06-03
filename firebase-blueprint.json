@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user with a specific role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "DELIVERY", "SUPPLIER"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "A ledger entry for a transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientEmail": { "type": "string", "format": "email" },
+        "issueDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Paid", "Pending", "Draft", "Overdue"] },
+        "items": { "type": "array" },
+        "taxRate": { "type": "number" },
+        "discount": { "type": "number" },
+        "notes": { "type": "string" },
+        "deliveryPerson": { "type": "string" },
+        "deliveryNote": { "type": "string" },
+        "supplierNote": { "type": "string" },
+        "spreadsheetId": { "type": "string" },
+        "supplierPhotoUrl": { "type": "string" },
+        "deliveryPhotoUrl": { "type": "string" }
+      },
+      "required": ["id", "clientName", "status", "items"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data."
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Collection of all invoices."
+    }
+  }
+}
