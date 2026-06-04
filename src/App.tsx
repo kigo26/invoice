@@ -5,7 +5,7 @@ import StatsDashboard from './components/StatsDashboard';
 import InvoiceList from './components/InvoiceList';
 import InvoiceForm from './components/InvoiceForm';
 import InvoiceDetail from './components/InvoiceDetail';
-import { Download, Upload, RotateCcw, Receipt, AlertCircle, Sparkles, CheckCircle2, Info, LogOut, User as UserIcon, Loader2, Shield, Ban, Truck, Navigation } from 'lucide-react';
+import { Download, Upload, RotateCcw, Receipt, AlertCircle, Sparkles, CheckCircle2, Info, LogOut, User as UserIcon, Loader2, Shield, Ban, Truck, Navigation, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { initAuth, googleSignIn, logout, auth, testConnection } from './lib/auth';
 import { User } from 'firebase/auth';
@@ -20,6 +20,7 @@ import ClientManagement from './components/ClientManagement';
 import SupplierManagement from './components/SupplierManagement';
 import DeliveryManagement from './components/DeliveryManagement';
 import SupplierDashboard from './components/SupplierDashboard';
+import WorkforceDirectory from './components/WorkforceDirectory';
 
 const LOCAL_STORAGE_KEY = 'invoice_tracker_invoices_data';
 
@@ -36,6 +37,7 @@ export default function App() {
   const [isClientMgmtOpen, setIsClientMgmtOpen] = useState(false);
   const [isSupplierMgmtOpen, setIsSupplierMgmtOpen] = useState(false);
   const [isDeliveryMgmtOpen, setIsDeliveryMgmtOpen] = useState(false);
+  const [isDirectoryMgmtOpen, setIsDirectoryMgmtOpen] = useState(false);
   
   // Auth state
   const [user, setUser] = useState<User | null>(null);
@@ -363,6 +365,9 @@ export default function App() {
                   appUser?.role === 'SUPER_ADMIN' || 
                   ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(user?.email || '');
 
+  const isSuperAdmin = appUser?.role === 'SUPER_ADMIN' || 
+                       ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(user?.email || '');
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
@@ -387,7 +392,7 @@ export default function App() {
     <div className="min-h-screen bg-[#0A0A0A] select-none font-sans text-[#E0E0E0] antialiased flex flex-col">
       {/* Header Panel - Sticky / Fixed at top */}
       <header className="bg-[#0C0C0C] border-b border-[#1F1F1F] sticky top-0 z-40 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4rem] py-3 flex flex-wrap items-center justify-between gap-4">
           
           {/* Logo & title brand */}
           <div className="flex items-center gap-2.5">
@@ -405,53 +410,11 @@ export default function App() {
           </div>
 
           {/* Right actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
             
             {/* Standard backup actions */}
             {isAdmin && (
               <>
-                <button
-                  id="export-backup-btn"
-                  title="Export Ledger (JSON)"
-                  type="button"
-                  onClick={handleExportData}
-                  className="cursor-pointer px-3 py-1.5 bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 hover:text-white border border-[#1F1F1F] rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
-                >
-                  <Download size={13} />
-                  <span className="hidden sm:inline">Backup</span>
-                </button>
-
-                <button
-                  id="import-backup-btn"
-                  title="Import Ledger (JSON)"
-                  type="button"
-                  onClick={handleImportClick}
-                  className="cursor-pointer px-3 py-1.5 bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 hover:text-white border border-[#1F1F1F] rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
-                >
-                  <Upload size={13} />
-                  <span className="hidden sm:inline">Import</span>
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept=".json"
-                  onChange={handleImportFileChange}
-                  className="hidden animate-none"
-                />
-
-                <button
-                  id="reset-seeds-btn"
-                  title="Restore System to Zero"
-                  type="button"
-                  onClick={handleRestoreSystem}
-                  className="cursor-pointer px-3 py-1.5 bg-[#141414] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 border border-[#1F1F1F] hover:border-rose-500/20 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
-                >
-                  <RotateCcw size={13} />
-                  <span className="hidden sm:inline">Restore</span>
-                </button>
-
-                <div className="h-6 w-[1px] bg-[#1F1F1F] mx-1"></div>
-
                 <button
                   id="user-mgmt-btn"
                   title="Authority Control"
@@ -495,6 +458,19 @@ export default function App() {
                   <Navigation size={13} strokeWidth={2.5} />
                   <span className="hidden sm:inline">Delivery</span>
                 </button>
+
+                {isSuperAdmin && (
+                  <button
+                    id="workforce-directory-btn"
+                    title="Workforce Directory"
+                    type="button"
+                    onClick={() => setIsDirectoryMgmtOpen(true)}
+                    className="cursor-pointer px-3 py-1.5 bg-purple-600/10 hover:bg-purple-600/20 text-purple-400 hover:text-purple-300 border border-purple-500/20 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Users size={13} strokeWidth={2.5} />
+                    <span className="hidden sm:inline">Directory</span>
+                  </button>
+                )}
               </>
             )}
 
@@ -653,6 +629,48 @@ export default function App() {
 
       </main>
 
+      {/* Footer / System Controls */}
+      {isAdmin && (
+        <footer className="border-t border-[#1F1F1F] bg-[#0C0C0C] py-4 px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-center gap-4 text-xs font-mono no-print">
+          <button
+            id="export-backup-btn"
+            type="button"
+            onClick={handleExportData}
+            className="cursor-pointer px-4 py-2 bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 hover:text-white border border-[#1F1F1F] rounded-lg inline-flex items-center gap-2 transition-colors shadow-sm"
+          >
+            <Download size={14} />
+            <span>Backup Data</span>
+          </button>
+
+          <button
+            id="import-backup-btn"
+            type="button"
+            onClick={handleImportClick}
+            className="cursor-pointer px-4 py-2 bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 hover:text-white border border-[#1F1F1F] rounded-lg inline-flex items-center gap-2 transition-colors shadow-sm"
+          >
+            <Upload size={14} />
+            <span>Import Data</span>
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".json"
+            onChange={handleImportFileChange}
+            className="hidden animate-none"
+          />
+
+          <button
+            id="reset-seeds-btn"
+            type="button"
+            onClick={handleRestoreSystem}
+            className="cursor-pointer px-4 py-2 bg-[#141414] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 border border-[#1F1F1F] hover:border-rose-500/20 rounded-lg inline-flex items-center gap-2 transition-colors shadow-sm"
+          >
+            <RotateCcw size={14} />
+            <span>Restore System</span>
+          </button>
+        </footer>
+      )}
+
       {/* Authority Control Drawer */}
       <AnimatePresence>
         {isUserMgmtOpen && appUser && (
@@ -691,6 +709,19 @@ export default function App() {
           <DeliveryManagement 
             partners={deliveryPartnersList} 
             onClose={() => setIsDeliveryMgmtOpen(false)} 
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Workforce Directory Drawer */}
+      <AnimatePresence>
+        {isDirectoryMgmtOpen && (
+          <WorkforceDirectory 
+            users={usersList}
+            suppliers={suppliersList}
+            deliveryPartners={deliveryPartnersList}
+            currentUser={appUser!}
+            onClose={() => setIsDirectoryMgmtOpen(false)} 
           />
         )}
       </AnimatePresence>

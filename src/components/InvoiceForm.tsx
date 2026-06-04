@@ -700,7 +700,7 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
               <label htmlFor="form-delivery-person" className="block text-xs font-semibold text-zinc-400 mb-1">
                 Delivery Personnel
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <select
                   id="form-delivery-person-select"
                   value={deliveryUsers.some(u => u.displayName === deliveryPerson) ? deliveryPerson : ''}

@@ -150,7 +150,7 @@ export default function InvoiceList({
         {/* Action Button & Filtering Tabs Row */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Status Select Filter */}
-          <div className="flex items-center gap-1 p-1 bg-[#0C0C0C] border border-[#1F1F1F] rounded-lg">
+          <div className="flex items-center gap-1 p-1 bg-[#0C0C0C] border border-[#1F1F1F] rounded-lg max-w-full overflow-x-auto scroller-hide">
             {(['All', 'Paid', 'Pending', 'Out for Delivery', 'Delivered', 'Overdue', 'Draft'] as const).map((status) => (
               <button
                 key={status}

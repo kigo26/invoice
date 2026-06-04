@@ -86,9 +86,9 @@ export default function ClientManagement({ clients, invoices, onClose, onSelectI
           </button>
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
           {/* Sidebar: Client List */}
-          <div className="w-80 border-r border-[#1F1F1F] flex flex-col bg-[#0A0A0A]">
+          <div className={`w-full md:w-80 border-r border-[#1F1F1F] flex flex-col bg-[#0A0A0A] ${(selectedClient || isAddingClient) ? 'hidden md:flex' : 'flex'}`}>
             <div className="p-4 space-y-4">
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -138,7 +138,7 @@ export default function ClientManagement({ clients, invoices, onClose, onSelectI
           </div>
 
           {/* Detailed View */}
-          <div className="flex-1 overflow-y-auto bg-[#0C0C0C]">
+          <div className={`flex-1 overflow-y-auto bg-[#0C0C0C] ${(selectedClient || isAddingClient) ? 'block' : 'hidden md:block'}`}>
             <AnimatePresence mode="wait">
               {isAddingClient ? (
                 <motion.div
@@ -148,8 +148,16 @@ export default function ClientManagement({ clients, invoices, onClose, onSelectI
                   exit={{ opacity: 0, x: -20 }}
                   className="p-8 max-w-2xl mx-auto"
                 >
-                  <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-8 space-y-6">
-                    <h3 className="text-lg font-bold text-white mb-6">Register New Client</h3>
+                  <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-6 sm:p-8 space-y-6">
+                    <div className="flex items-center gap-4 mb-6">
+                      <button 
+                        onClick={() => setIsAddingClient(false)} 
+                        className="md:hidden p-2 bg-[#1A1A1A] text-zinc-400 rounded-lg shrink-0 border border-[#2A2A2A]"
+                      >
+                        <X size={18} />
+                      </button>
+                      <h3 className="text-lg font-bold text-white mb-0">Register New Client</h3>
+                    </div>
                     <form onSubmit={handleAddClient} className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -221,14 +229,21 @@ export default function ClientManagement({ clients, invoices, onClose, onSelectI
                   className="p-8 space-y-8"
                 >
                   {/* Profile Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-6">
-                      <div className="w-20 h-20 rounded-3xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                        <User size={40} />
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex items-center gap-4 sm:gap-6">
+                      <button 
+                        onClick={() => setSelectedClient(null)} 
+                        className="md:hidden p-2 bg-[#1A1A1A] text-zinc-400 rounded-lg shrink-0 border border-[#2A2A2A]"
+                      >
+                        <X size={18} />
+                      </button>
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-3xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                        <User size={32} className="sm:hidden" />
+                        <User size={40} className="hidden sm:block" />
                       </div>
-                      <div>
-                        <h2 className="text-3xl font-bold text-white tracking-tight">{selectedClient.name}</h2>
-                        <div className="flex items-center gap-4 mt-2">
+                      <div className="min-w-0 flex-1">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight truncate">{selectedClient.name}</h2>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
                           <span className="flex items-center gap-1.5 text-xs text-zinc-500 font-mono bg-[#141414] px-2 py-1 rounded-md border border-[#1F1F1F]">
                             <Mail size={12} />
                             {selectedClient.email}

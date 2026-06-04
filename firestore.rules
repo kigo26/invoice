@@ -19,7 +19,7 @@ service cloud.firestore {
     }
 
     function isActive() {
-      return isSignedIn() && userExists() && (!getUserData().keys().contains('isDisabled') || getUserData().isDisabled == false);
+      return isSignedIn() && userExists() && (!('isDisabled' in getUserData()) || getUserData().isDisabled == false);
     }
 
     function isSuperAdmin() {
@@ -51,8 +51,12 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       
       // Allow user to create their own profile. Default role must not be admin.
-      allow create: if isSignedIn() && request.auth.uid == userId && 
-                    !request.resource.data.keys().hasAny(['role', 'isAuthorized', 'isDisabled']);
+      // Super Admins can pre-create users with any role.
+      // Admins can pre-create users but not with ADMIN or SUPER_ADMIN roles.
+      allow create: if (isSignedIn() && request.auth.uid == userId && 
+                    !request.resource.data.keys().hasAny(['role', 'isAuthorized', 'isDisabled'])) ||
+                    isSuperAdmin() ||
+                    (isAdmin() && (!('role' in request.resource.data) || (request.resource.data.role != 'ADMIN' && request.resource.data.role != 'SUPER_ADMIN')));
       
       // Super Admin can update anything.
       // Admins can manage non-admin roles (except promoting to admin or disabling).
@@ -61,14 +65,17 @@ service cloud.firestore {
         isSuperAdmin() || 
         (isAdmin() && 
           // Targeted user is not a super/admin
-          (resource.data.keys().contains('role') == false || (resource.data.role != 'SUPER_ADMIN' && resource.data.role != 'ADMIN')) && 
+          (!('role' in resource.data) || (resource.data.role != 'SUPER_ADMIN' && resource.data.role != 'ADMIN')) && 
           // Admin cannot change isDisabled (Super Admin only)
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isDisabled']) &&
           // Admin cannot promote user to admin or super admin
-          (!request.resource.data.keys().contains('role') || (request.resource.data.role != 'ADMIN' && request.resource.data.role != 'SUPER_ADMIN'))
+          (!('role' in request.resource.data) || (request.resource.data.role != 'ADMIN' && request.resource.data.role != 'SUPER_ADMIN'))
         ) ||
         (request.auth.uid == userId && isActive() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAuthorized', 'isDisabled']))
       );
+      
+      // Only Super Admin can delete users
+      allow delete: if isSuperAdmin();
     }
 
     match /invoices/{invoiceId} {

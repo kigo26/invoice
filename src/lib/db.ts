@@ -65,6 +65,17 @@ export const updateUserAccountStatus = async (actor: AppUser, targetUid: string,
   }
 };
 
+export const deleteUserAccount = async (actor: AppUser, targetUid: string) => {
+  const path = `users/${targetUid}`;
+  try {
+    await deleteDoc(doc(db, 'users', targetUid));
+    await createAuditLog(actor, 'DELETED_USER_RECORD', `Deleted user profile for ${targetUid}`, targetUid);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+    throw error;
+  }
+};
+
 export const updateUserRole = async (actor: AppUser, targetUid: string, role: string, isAuthorized: boolean) => {
   const path = `users/${targetUid}`;
   try {
