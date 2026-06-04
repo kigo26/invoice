@@ -64,14 +64,20 @@ export default function App() {
         setAccessToken(token);
         
         try {
-          const profile = await getUserProfile(authUser.uid);
-          if (profile) {
-            setAppUser(profile);
-          } else {
-            // No record found -> ACCESS DENIED (implicitly by appUser being null)
-            console.warn('Unauthorized login attempt:', authUser.email);
-            setAppUser(null);
+          let profile = await getUserProfile(authUser.uid);
+          
+          if (!profile) {
+            // Auto-onboard new users as DELIVERY if they aren't pre-authorized
+            // This ensures team members can at least "open" the app immediately.
+            console.log('Onboarding new user:', authUser.email);
+            profile = await assignUserRole(authUser, 'DELIVERY');
+            
+            // Log this event
+            const { createAuditLog } = await import('./lib/db');
+            await createAuditLog(profile, 'AUTO_ONBOARD', `System automatically provisioned DELIVERY access node for new user ${authUser.email}`, authUser.uid);
           }
+          
+          setAppUser(profile);
         } catch (err) {
           console.error('Error fetching profile:', err);
         } finally {

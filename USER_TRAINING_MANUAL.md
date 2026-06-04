@@ -61,4 +61,25 @@ The system is a unified platform for managing invoices, deliveries, client/suppl
 
 ---
 
-*For further developer and codebase queries, consult the system architecture and React components (e.g., `src/App.tsx`, `src/components/RoleSelector.tsx`).*
+## 4. Developer Notes: Deployment & Access
+
+### Fixing the "App is Under Development" Error
+If users see a message saying **"The app is under development and you are not allowed to access"** (or a Google verification warning) when trying to sign in, this is a restriction from the Google Cloud Console (OAuth Consent Screen).
+
+**To resolve this:**
+1.  Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2.  Select your project (the one linked to your Firebase/App).
+3.  Navigate to **APIs & Services > OAuth Consent Screen**.
+4.  If the "Publishing Status" is set to "Testing", you have two options:
+    -   **Option A (Permanent Fix):** Click **"Push to Production"**. This will make the app available to everyone.
+    -   **Option B (Selective Fix):** Keep it in Testing but add your team members' emails to the **"Test Users"** section at the bottom of that page.
+
+### New: Automatic Team Onboarding
+As of the latest update, the application now supports **Automatic Onboarding**:
+-   Any team member who signs in with a valid Google Account will **automatically** be granted a "Delivery" (Field Operations) role.
+-   This ensures they can "open" the application immediately without being blocked by an "Access Denied" screen.
+-   **Admins** can then locate these new users in the **Personnel** section and promote them to "Admin" or "Super Admin" as needed.
+
+---
+
+*For further developer and codebase queries, consult the system architecture and React components (e.g., `src/App.tsx`, `src/components/RoleSelector.tsx`). Check `metadata.json` for name and description overrides.*
