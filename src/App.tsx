@@ -630,46 +630,51 @@ export default function App() {
       </main>
 
       {/* Footer / System Controls */}
-      {isAdmin && (
-        <footer className="border-t border-[#1F1F1F] bg-[#0C0C0C] py-4 px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-center gap-4 text-xs font-mono no-print">
-          <button
-            id="export-backup-btn"
-            type="button"
-            onClick={handleExportData}
-            className="cursor-pointer px-4 py-2 bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 hover:text-white border border-[#1F1F1F] rounded-lg inline-flex items-center gap-2 transition-colors shadow-sm"
-          >
-            <Download size={14} />
-            <span>Backup Data</span>
-          </button>
+      <footer className="border-t border-[#1F1F1F] bg-[#0C0C0C] py-6 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center gap-4 text-xs font-mono no-print">
+        {isAdmin && (
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <button
+              id="export-backup-btn"
+              type="button"
+              onClick={handleExportData}
+              className="cursor-pointer px-4 py-2 bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 hover:text-white border border-[#1F1F1F] rounded-lg inline-flex items-center gap-2 transition-colors shadow-sm"
+            >
+              <Download size={14} />
+              <span>Backup Data</span>
+            </button>
 
-          <button
-            id="import-backup-btn"
-            type="button"
-            onClick={handleImportClick}
-            className="cursor-pointer px-4 py-2 bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 hover:text-white border border-[#1F1F1F] rounded-lg inline-flex items-center gap-2 transition-colors shadow-sm"
-          >
-            <Upload size={14} />
-            <span>Import Data</span>
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept=".json"
-            onChange={handleImportFileChange}
-            className="hidden animate-none"
-          />
+            <button
+              id="import-backup-btn"
+              type="button"
+              onClick={handleImportClick}
+              className="cursor-pointer px-4 py-2 bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 hover:text-white border border-[#1F1F1F] rounded-lg inline-flex items-center gap-2 transition-colors shadow-sm"
+            >
+              <Upload size={14} />
+              <span>Import Data</span>
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              onChange={handleImportFileChange}
+              className="hidden animate-none"
+            />
 
-          <button
-            id="reset-seeds-btn"
-            type="button"
-            onClick={handleRestoreSystem}
-            className="cursor-pointer px-4 py-2 bg-[#141414] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 border border-[#1F1F1F] hover:border-rose-500/20 rounded-lg inline-flex items-center gap-2 transition-colors shadow-sm"
-          >
-            <RotateCcw size={14} />
-            <span>Restore System</span>
-          </button>
-        </footer>
-      )}
+            <button
+              id="reset-seeds-btn"
+              type="button"
+              onClick={handleRestoreSystem}
+              className="cursor-pointer px-4 py-2 bg-[#141414] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 border border-[#1F1F1F] hover:border-rose-500/20 rounded-lg inline-flex items-center gap-2 transition-colors shadow-sm"
+            >
+              <RotateCcw size={14} />
+              <span>Restore System</span>
+            </button>
+          </div>
+        )}
+        <div className="text-zinc-500">
+          Design By <a href="mailto:jamenya1988@gmail.com" className="text-indigo-400 hover:text-indigo-300 underline font-semibold transition-colors">Kepler Camp Codes</a>
+        </div>
+      </footer>
 
       {/* Authority Control Drawer */}
       <AnimatePresence>
