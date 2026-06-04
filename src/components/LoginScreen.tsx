@@ -45,7 +45,7 @@ export default function LoginScreen({ onLogin, isLoggingIn }: LoginScreenProps) 
                 </svg>
               </div>
               <span className="text-sm font-bold text-white uppercase tracking-[0.1em]">
-                {isLoggingIn ? 'Verifying Identity...' : 'Sign in with Google'}
+                {isLoggingIn ? 'Verifying Identity...' : 'AUTHORIZE PERSONNEL'}
               </span>
             </div>
           </button>

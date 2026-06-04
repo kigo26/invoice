@@ -404,7 +404,7 @@ export default function App() {
                 Liliprovisions Ltd
               </h1>
               <p className="text-[10px] text-zinc-500 mt-1 font-mono">
-                Pristine Ledger & Credit Index
+                Kepler Camp Codes
               </p>
             </div>
           </div>
@@ -521,7 +521,7 @@ export default function App() {
                       <path fill="none" d="M0 0h48v48H0z"></path>
                     </svg>
                   </div>
-                  <span className="gsi-material-button-contents">Sign in</span>
+                  <span className="gsi-material-button-contents">AUTHORIZE PERSONNEL</span>
                 </div>
               </button>
             )}
