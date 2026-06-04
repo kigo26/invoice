@@ -36,7 +36,7 @@ export default function UserManagement({ onClose, currentUser }: UserManagementP
     };
   }, []);
 
-  const isSuperAdmin = currentUser.role === 'SUPER_ADMIN' || ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com'].includes(currentUser.email || '');
+  const isSuperAdmin = currentUser.role === 'SUPER_ADMIN' || ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(currentUser.email || '');
 
   const handleUpdateRole = async (targetUser: AppUser, newRole: UserRole) => {
     if (processingUid) return;

@@ -9,7 +9,7 @@ import { Download, Upload, RotateCcw, Receipt, AlertCircle, Sparkles, CheckCircl
 import { motion, AnimatePresence } from 'motion/react';
 import { initAuth, googleSignIn, logout, auth, testConnection } from './lib/auth';
 import { User } from 'firebase/auth';
-import { setDoc, doc } from 'firebase/firestore';
+import { setDoc, doc, updateDoc } from 'firebase/firestore';
 import { getUserProfile, assignUserRole, db } from './lib/auth';
 import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb, subscribeToUsers, purgeInvoicesFromDb, subscribeToClients, subscribeToSuppliers, subscribeToDeliveryPartners } from './lib/db';
 import RoleSelector from './components/RoleSelector';
@@ -84,6 +84,32 @@ export default function App() {
       }
     );
   }, []);
+
+  // Helper to securely ensure skigo5917 acts as Delivery for testing workflows
+  useEffect(() => {
+    if (user?.email === 'skigo5917@gmail.com' && appUser && appUser.role !== 'DELIVERY' && !localStorage.getItem('skigo_delivery_override')) {
+      localStorage.setItem('skigo_delivery_override', 'true');
+      const seedRole = async () => {
+        try {
+          // Temporarily pivot their user role to DELIVERY so they can see the driver's layout
+          await updateDoc(doc(db, 'users', user.uid), { role: 'DELIVERY' });
+          // Ensure they are registered in the logistics DB
+          await setDoc(doc(db, 'delivery_partners', user.uid), {
+            id: user.uid,
+            name: appUser.displayName || 'Gabriel Skigo (Scout)',
+            email: user.email,
+            phone: '+254 700 000000',
+            vehicleId: 'SYSTEM-1',
+            createdAt: new Date().toISOString()
+          });
+          window.location.reload();
+        } catch (e) {
+          console.error('Failed pushing delivery scout role seed', e);
+        }
+      };
+      seedRole();
+    }
+  }, [user, appUser]);
 
   // Sync with Firestore
   useEffect(() => {
@@ -335,7 +361,7 @@ export default function App() {
 
   const isAdmin = appUser?.role === 'ADMIN' || 
                   appUser?.role === 'SUPER_ADMIN' || 
-                  ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com'].includes(user?.email || '');
+                  ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(user?.email || '');
 
   if (isLoading) {
     return (
