@@ -77,16 +77,25 @@ let isSigningIn = false;
 let cachedAccessToken: string | null = null;
 
 export const initAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
+  onAuthSuccess?: (user: User, token: string, profile: AppUser) => void,
   onAuthFailure?: () => void
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        // We technically don't have the token on page reload unless we re-auth or use a background method
-        // For simplicity in this demo, we'll ask for login if token is missing
+      try {
+        const token = await user.getIdToken();
+        const profile = await getUserProfile(user.uid);
+        
+        if (profile && onAuthSuccess) {
+          onAuthSuccess(user, token, profile);
+        } else if (!profile && !isSigningIn) {
+          // If no profile exists and we're not currently in the sign-in flow,
+          // create one with default role
+          const newProfile = await createUserProfile(user);
+          if (onAuthSuccess) onAuthSuccess(user, token, newProfile);
+        }
+      } catch (error) {
+        console.error('Auth refresh error:', error);
         if (onAuthFailure) onAuthFailure();
       }
     } else {
@@ -110,13 +119,13 @@ export const getUserProfile = async (uid: string): Promise<AppUser | null> => {
   return null;
 };
 
-export const assignUserRole = async (user: User, role: UserRole): Promise<AppUser> => {
+export const createUserProfile = async (user: User): Promise<AppUser> => {
   const profile: AppUser = {
     uid: user.uid,
     email: user.email,
     displayName: user.displayName,
     photoURL: user.photoURL,
-    role,
+    role: 'delivery', // default role as requested
   };
   const path = `users/${user.uid}`;
   try {
@@ -128,25 +137,30 @@ export const assignUserRole = async (user: User, role: UserRole): Promise<AppUse
   }
 };
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+export const googleSignIn = async (): Promise<{ user: User; accessToken: string; profile: AppUser } | null> => {
+  isSigningIn = true;
   try {
-    // Attempt sign in with popup directly to maintain user gesture
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
+    // Note: This accessToken is for Google APIs (Sheets), not the Firebase ID token
+    const googleAccessToken = credential?.accessToken || '';
+    
+    // Proving identity then load profile
+    let profile = await getUserProfile(result.user.uid);
+    if (!profile) {
+      profile = await createUserProfile(result.user);
     }
 
-    cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
+    cachedAccessToken = googleAccessToken;
+    return { user: result.user, accessToken: googleAccessToken, profile };
   } catch (error: any) {
     if (error.code === 'auth/popup-blocked') {
       console.error('Sign-in popup was blocked by the browser.');
-    } else if (error.code === 'auth/unauthorized-domain') {
-      console.error('This domain is not authorized for Firebase Authentication. Please add it in the Firebase Console.');
     }
     console.error('Sign in error:', error);
     throw error;
+  } finally {
+    isSigningIn = false;
   }
 };
 

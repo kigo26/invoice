@@ -1,11 +1,11 @@
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'DELIVERY' | 'SUPPLIER';
+export type UserRole = 'super_admin' | 'admin' | 'delivery' | 'supplier';
 
 export interface AppUser {
   uid: string;
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  role?: UserRole;
+  role: UserRole;
   isAuthorized?: boolean;
   isDisabled?: boolean;
 }
@@ -29,7 +29,7 @@ export interface LineItem {
   deliveryWeight?: number; // Weight at point of delivery (KGs)
 }
 
-export type InvoiceStatus = 'Paid' | 'Pending' | 'Draft' | 'Overdue' | 'Out for Delivery' | 'Delivered';
+export type InvoiceStatus = 'Paid' | 'Pending' | 'Draft' | 'Overdue' | 'Out for Delivery' | 'Delivered' | 'READY_FOR_PICKUP';
 
 export interface Client {
   id: string;
@@ -71,10 +71,17 @@ export interface Invoice {
   status: InvoiceStatus;
   notes?: string;
   deliveryPerson?: string;
+  deliveryUID?: string;
+  deliveryName?: string;
+  deliveryEmail?: string;
   deliveryNote?: string;
   deliveryNotes?: string;
   supplierNote?: string;
   spreadsheetId?: string;
   supplierPhotoUrl?: string; // Weighing scale photo from supplier
+  supplierUID?: string;
+  supplierConfirmedAt?: string;
+  supplierName?: string;
+  supplierEmail?: string;
   deliveryPhotoUrl?: string; // Weighing scale photo from delivery
 }

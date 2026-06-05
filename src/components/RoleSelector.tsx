@@ -10,21 +10,21 @@ interface RoleSelectorProps {
 export default function RoleSelector({ onSelect, isProcessing }: RoleSelectorProps) {
   const roles: { role: UserRole; title: string; description: string; icon: any; color: string }[] = [
     {
-      role: 'ADMIN',
+      role: 'admin',
       title: 'Administrator',
       description: 'Full access to create, edit, manage invoices and financial datasets.',
       icon: Shield,
       color: 'bg-indigo-500',
     },
     {
-      role: 'DELIVERY',
+      role: 'delivery',
       title: 'Delivery Personnel',
       description: 'Fill delivery weights and notes via automated Google Sheets.',
       icon: Truck,
       color: 'bg-emerald-500',
     },
     {
-      role: 'SUPPLIER',
+      role: 'supplier',
       title: 'Supplier (Slaughterhouse)',
       description: 'Log initial supply weights and quality notes at source.',
       icon: Factory,

@@ -8,10 +8,10 @@ interface SupplierDashboardProps {
   invoices: Invoice[];
   appUser: AppUser;
   onSelectInvoice: (invoice: Invoice) => void;
-  onQuickStatusChange: (id: string, status: InvoiceStatus) => void;
+  onUpdateInvoice: (id: string, updates: Partial<Invoice>) => void;
 }
 
-export default function SupplierDashboard({ invoices, appUser, onSelectInvoice, onQuickStatusChange }: SupplierDashboardProps) {
+export default function SupplierDashboard({ invoices, appUser, onSelectInvoice, onUpdateInvoice }: SupplierDashboardProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filter invoices for suppliers to see (usually Pending or Draft)
@@ -106,16 +106,39 @@ export default function SupplierDashboard({ invoices, appUser, onSelectInvoice, 
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {inv.status !== 'READY_FOR_PICKUP' ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateInvoice(inv.id, {
+                            status: "READY_FOR_PICKUP",
+                            supplierUID: appUser.uid,
+                            supplierConfirmedAt: new Date().toISOString(),
+                            supplierName: appUser.displayName || undefined,
+                            supplierEmail: appUser.email || undefined
+                          });
+                        }}
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                      >
+                        <CheckCircle2 size={14} />
+                        Confirm & Set Ready
+                      </button>
+                    ) : (
+                      <div className="px-4 py-2 bg-zinc-800 text-zinc-500 text-[10px] font-bold uppercase tracking-widest rounded-lg flex items-center gap-2 border border-zinc-700">
+                        <CheckCircle2 size={14} className="text-emerald-500" />
+                        Ready for Pickup
+                      </div>
+                    )}
+                    
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Special action for supplier: set to "Ready" or "Supplier Confirmed"
-                        // For now we just use existing status flow
+                        onSelectInvoice(inv);
                       }}
-                      className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all flex items-center gap-2"
+                      className="px-4 py-2 bg-[#141414] border border-[#1F1F1F] text-zinc-400 hover:text-white text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all flex items-center gap-2"
                     >
                       <Camera size={14} />
-                      Document Supply
+                      Document
                     </button>
                     <div className="p-2 text-zinc-600 group-hover:text-white group-hover:translate-x-1 transition-all">
                       <ChevronRight size={20} />

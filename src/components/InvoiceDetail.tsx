@@ -1,10 +1,13 @@
-import { Invoice, InvoiceStatus, AppUser } from '../types';
+import { Invoice, InvoiceStatus, AppUser, AuditLog } from '../types';
 import { calculateInvoice, formatCurrency, formatDate } from '../utils';
-import { X, Printer, Edit2, Mail, Calendar, CheckSquare, Clock, AlertTriangle, FileText, CheckCircle, FileSpreadsheet, ExternalLink, Loader2, RefreshCw, Camera, Trash2 as TrashIcon, Truck } from 'lucide-react';
+import { X, Printer, Edit2, Mail, Calendar, CheckSquare, Clock, AlertTriangle, FileText, CheckCircle, FileSpreadsheet, ExternalLink, Loader2, RefreshCw, Camera, Trash2 as TrashIcon, Truck, Download, History, User, Eye, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { createSupplierSheet, syncInvoiceFromSheet } from '../lib/googleSheets';
-import { useState, ChangeEvent } from 'react';
+import { useState, ChangeEvent, useEffect } from 'react';
 import CameraCapture from './CameraCapture';
+import { subscribeToAuditLogs } from '../lib/db';
 
 interface InvoiceDetailProps {
   key?: string;
@@ -19,14 +22,26 @@ interface InvoiceDetailProps {
 
 export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, onEdit, onStatusChange, onUpdate }: InvoiceDetailProps) {
   const { subtotal, taxAmount, total } = calculateInvoice(invoice);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isGeneratingSheet, setIsGeneratingSheet] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sheetUrl, setSheetUrl] = useState<string | null>(invoice.spreadsheetId ? `https://docs.google.com/spreadsheets/d/${invoice.spreadsheetId}` : null);
   const [viewMode, setViewMode] = useState<'invoice' | 'delivery' | 'supply' | 'reconciliation'>('invoice');
 
-  const isAdmin = appUser?.role === 'ADMIN';
-  const isDelivery = appUser?.role === 'DELIVERY';
-  const isSupplier = appUser?.role === 'SUPPLIER';
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAuditLogs((logs) => {
+      // Filter logs for this specific invoice
+      const relevantLogs = logs.filter(log => log.targetId === invoice.id);
+      setAuditLogs(relevantLogs);
+    });
+    return () => unsubscribe();
+  }, [invoice.id]);
+
+  const isAdmin = appUser?.role === 'admin' || appUser?.role === 'super_admin';
+  const isDelivery = appUser?.role === 'delivery';
+  const isSupplier = appUser?.role === 'supplier';
 
   const [isUploading, setIsUploading] = useState(false);
   const [activeCamera, setActiveCamera] = useState<'supplier' | 'delivery' | null>(null);
@@ -75,6 +90,43 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById('invoice-document-card');
+    if (!element) return;
+
+    setIsGeneratingPDF(true);
+    try {
+      // Capture the element as a canvas
+      const canvas = await html2canvas(element, {
+        scale: 2, // Higher scale for better quality
+        useCORS: true,
+        backgroundColor: '#141414',
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Calculate PDF dimensions
+      const imgWidth = canvas.width / 2;
+      const imgHeight = canvas.height / 2;
+      
+      const pdf = new jsPDF({
+        orientation: imgWidth > imgHeight ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [imgWidth, imgHeight]
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`LiliProvisions_Invoice_${invoice.id.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   const handleGenerateSheet = async () => {
@@ -130,6 +182,7 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
     Draft: FileText,
     'Out for Delivery': Truck,
     Delivered: CheckCircle,
+    READY_FOR_PICKUP: Package,
   };
 
   const statusColors: Record<InvoiceStatus, string> = {
@@ -139,19 +192,20 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
     Draft: 'text-zinc-400 bg-[#1C1C1C] border-[#1F1F1F]',
     'Out for Delivery': 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
     Delivered: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+    READY_FOR_PICKUP: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
   };
 
   const StatusIcon = statusIcons[invoice.status];
 
   return (
-    <div id="invoice-detail-backdrop" className="fixed inset-0 z-50 flex justify-end no-print">
+    <div id="invoice-detail-backdrop" className={`fixed inset-0 z-50 flex justify-end no-print ${isPreviewMode ? 'bg-[#050505]' : ''}`}>
       {/* Background Dim Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+        className={`absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity ${isPreviewMode ? 'hidden' : ''}`}
       />
 
       {/* Slide drawer container */}
@@ -160,10 +214,10 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-        className="relative w-full max-w-3xl bg-[#0A0A0A] h-screen shadow-2xl flex flex-col overflow-hidden"
+        className={`relative ${isPreviewMode ? 'w-full h-full' : 'w-full max-w-3xl'} bg-[#0A0A0A] h-screen shadow-2xl flex flex-col overflow-hidden transition-all duration-500`}
       >
-        {/* Actions header bar - Hidden when executing system print */}
-        <div className="px-6 py-4 bg-[#141414] border-b border-[#1F1F1F] flex flex-wrap items-center justify-between gap-4 no-print">
+        {/* Actions header bar - Hidden when executing system print or in Preview Mode */}
+        <div className={`px-6 py-4 bg-[#141414] border-b border-[#1F1F1F] flex flex-wrap items-center justify-between gap-4 no-print ${isPreviewMode ? 'hidden' : 'flex'}`}>
           <div className="flex items-center gap-3">
             <button
               id="back-list-btn"
@@ -226,7 +280,7 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
 
             {/* Quick Status toggle buttons */}
             <div className="flex items-center bg-[#0C0C0C] p-0.5 rounded-lg border border-[#1F1F1F] mr-2">
-              {(['Draft', 'Pending', 'Out for Delivery', 'Delivered', 'Paid'] as InvoiceStatus[]).map((st) => (
+              {(['Draft', 'Pending', 'READY_FOR_PICKUP', 'Out for Delivery', 'Delivered', 'Paid'] as InvoiceStatus[]).map((st) => (
                 <button
                   key={st}
                   id={`status-toggle-${st.toLowerCase().replace(/ /g, '-')}`}
@@ -256,10 +310,62 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
               id="print-invoice-btn"
               type="button"
               onClick={handlePrint}
-              className="cursor-pointer bg-white hover:bg-zinc-200 text-black font-bold text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm animate-none"
+              className="cursor-pointer bg-[#141414] hover:bg-[#1C1C1C] text-zinc-300 font-bold text-xs px-3.5 py-2 rounded-lg border border-[#1F1F1F] transition-colors flex items-center gap-1.5 shadow-sm animate-none"
             >
-              <Printer size={13} /> Print Invoice
+              <Printer size={13} /> Print
             </button>
+
+            <button
+              id="download-pdf-btn"
+              type="button"
+              disabled={isGeneratingPDF}
+              onClick={handleDownloadPDF}
+              className="cursor-pointer bg-[#1C1C1C] hover:bg-[#252525] text-indigo-400 font-bold text-xs px-3.5 py-2 rounded-lg border border-indigo-500/20 transition-all flex items-center gap-1.5 shadow-md disabled:opacity-50"
+            >
+              {isGeneratingPDF ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Download size={13} />
+              )}
+              <span>PDF</span>
+            </button>
+
+            <button
+              id="live-preview-toggle-btn"
+              type="button"
+              onClick={() => setIsPreviewMode(true)}
+              className="cursor-pointer bg-[#141414] hover:bg-[#1C1C1C] text-indigo-400 font-bold text-xs px-3.5 py-2 rounded-lg border border-indigo-500/20 transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <Eye size={13} /> Preview
+            </button>
+
+            {/* Email Invoice Button */}
+            {(() => {
+              const { total } = calculateInvoice(invoice);
+              const subject = encodeURIComponent(`Invoice Summary: ${invoice.id}`);
+              const directLink = `${window.location.origin}/?invoiceId=${invoice.id}`;
+              const body = encodeURIComponent(
+                `Invoice Details:\n\n` +
+                `Invoice ID: ${invoice.id}\n` +
+                `Client: ${invoice.clientName}\n` +
+                `Issue Date: ${formatDate(invoice.issueDate)}\n` +
+                `Status: ${invoice.status}\n` +
+                `Total Amount: ${formatCurrency(total)}\n\n` +
+                `View Record Online: ${directLink}\n\n` +
+                `Thank you for your business!`
+              );
+              const mailtoLink = `mailto:${invoice.clientEmail}?subject=${subject}&body=${body}`;
+
+              return (
+                <a
+                  id="email-invoice-btn"
+                  href={mailtoLink}
+                  className="cursor-pointer bg-white hover:bg-zinc-200 text-black font-bold text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm animate-none"
+                >
+                  <Mail size={13} /> Email Invoice
+                </a>
+              );
+            })()}
 
             {isAdmin && accessToken && (
               <div className="flex items-center gap-2">
@@ -311,9 +417,47 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
         </div>
       </div>
 
+        {/* Preview Mode Exit Floating Bar */}
+        {isPreviewMode && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] no-print">
+            <div className="bg-[#141414]/80 backdrop-blur-md border border-[#1F1F1F] rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl">
+              <div className="flex items-center gap-2 pr-4 border-r border-[#1F1F1F]">
+                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                <span className="text-[10px] uppercase font-black tracking-widest text-[#E0E0E0]">Live Preview Mode</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadPDF}
+                  disabled={isGeneratingPDF}
+                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-indigo-600/20"
+                >
+                  {isGeneratingPDF ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                  Download PDF
+                </button>
+                
+                <button
+                  onClick={handlePrint}
+                  className="px-4 py-1.5 bg-[#1F1F1F] hover:bg-[#252525] text-white rounded-full text-xs font-bold transition-all flex items-center gap-2"
+                >
+                  <Printer size={12} />
+                  Print
+                </button>
+
+                <button
+                  onClick={() => setIsPreviewMode(false)}
+                  className="px-4 py-1.5 bg-white text-black hover:bg-zinc-200 rounded-full text-xs font-extrabold transition-all ml-2"
+                >
+                  Exit Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Success Banner if sheet generated - Limited to Admin */}
         <AnimatePresence>
-          {accessToken && sheetUrl && (
+          {accessToken && sheetUrl && !isPreviewMode && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -337,12 +481,12 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
         </AnimatePresence>
 
         {/* Scrollable content section */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 flex items-start justify-center bg-[#0A0A0A]">
+        <div className={`flex-1 overflow-y-auto p-6 md:p-8 flex items-start justify-center transition-all duration-300 ${isPreviewMode ? 'bg-zinc-950 pt-24 pb-24' : 'bg-[#0A0A0A]'}`}>
           
           {/* Print container representation */}
           <div 
             id="invoice-document-card"
-            className="bg-[#141414] w-full max-w-2xl p-8 rounded-2xl border border-[#1F1F1F] text-[#E0E0E0] shadow-2xl relative print-container"
+            className={`bg-[#141414] w-full max-w-2xl p-8 rounded-2xl border border-[#1F1F1F] text-[#E0E0E0] shadow-2xl relative print-container transition-all duration-500 ${isPreviewMode ? 'shadow-indigo-500/5 border-zinc-800' : ''}`}
           >
             {/* Document Header */}
             <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 pb-6 border-b border-[#1F1F1F]/60">
@@ -375,8 +519,8 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
                 <span className="text-[10px] uppercase font-bold text-zinc-550 tracking-widest font-mono">Billed From</span>
                 <div className="font-bold text-white">Liliprovisions Ltd</div>
                 <div className="text-xs text-zinc-400 leading-relaxed">
-                  Liaison House, 4th Floor<br />
-                  State House Avenue, Nairobi, Kenya<br />
+                  Masanduku Park,Shop 5<br />
+                  Utawala, Nairobi, Kenya<br />
                   <span className="font-mono text-zinc-500">accounts@liliprovisions.co.ke</span>
                 </div>
               </div>
@@ -596,8 +740,44 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
               </div>
             )}
 
+            {/* Supplier Confirmation Section */}
+            {(invoice.supplierUID || invoice.supplierName || invoice.supplierEmail || viewMode === 'supply') && (
+              <div className="mt-8 pt-6 border-t border-[#1F1F1F] grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <span className="block text-[9px] uppercase font-bold text-zinc-500 tracking-wider font-mono mb-1.5">Supply Status</span>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-white bg-[#0C0C0C] p-3 rounded-lg border border-[#1F1F1F]">
+                      <Package size={14} className="text-emerald-400" />
+                      <span>{invoice.supplierConfirmedAt ? 'Confirmed Ready by Supplier' : 'Awaiting Supplier Documentation'}</span>
+                    </div>
+                  </div>
+                  
+                  {(invoice.supplierName || invoice.supplierEmail) && (
+                    <div>
+                      <span className="block text-[9px] uppercase font-bold text-zinc-500 tracking-wider font-mono mb-1.5">Verified By Supplier</span>
+                      <div className="text-xs text-white font-bold">{invoice.supplierName || 'Anonymous Supplier Node'}</div>
+                      <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{invoice.supplierEmail}</div>
+                      {invoice.supplierConfirmedAt && (
+                        <div className="text-[9px] text-zinc-600 font-mono mt-1 italic">Timestamp: {new Date(invoice.supplierConfirmedAt).toLocaleString()}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {viewMode === 'supply' && (
+                  <div className="flex flex-col justify-end space-y-4">
+                    <div className="border-b border-[#1F1F1F] pb-1">
+                      <span className="block text-[9px] uppercase font-bold text-zinc-500 tracking-wider font-mono mb-8">Supplier Dispatch (Authorized Stamp)</span>
+                      <div className="h-0.5 w-full bg-zinc-800"></div>
+                    </div>
+                    <div className="text-[10px] text-zinc-500 italic">This document confirms KGs listed were verified at slaughter.</div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Delivery Details Section */}
-            {(invoice.deliveryPerson || invoice.deliveryNote || viewMode === 'delivery') && (
+            {(invoice.deliveryUID || invoice.deliveryPerson || invoice.deliveryNote || viewMode === 'delivery') && (
               <div className="mt-8 pt-6 border-t border-[#1F1F1F] grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
@@ -608,10 +788,13 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
                     </div>
                   </div>
                   
-                  {invoice.deliveryPerson && (
+                  {(invoice.deliveryName || invoice.deliveryPerson) && (
                     <div>
                       <span className="block text-[9px] uppercase font-bold text-zinc-500 tracking-wider font-mono mb-1.5">Delivered By</span>
-                      <div className="text-xs text-white font-bold">{invoice.deliveryPerson}</div>
+                      <div className="text-xs text-white font-bold">{invoice.deliveryName || invoice.deliveryPerson}</div>
+                      {invoice.deliveryEmail && (
+                        <div className="text-[10px] text-zinc-500 font-mono mt-0.5">{invoice.deliveryEmail}</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -767,10 +950,70 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
 
             {/* Print Footer Disclaimer watermarks */}
             <div className="mt-12 text-center text-[10px] text-zinc-500 border-t border-[#1F1F1F] pt-4 flex items-center justify-between font-mono">
-              <span>Liliprovisions Ltd Autogenerated Ledger</span>
+              <span>Liliprovisions Ltd Ledger</span>
               <span>Thank you for your business!</span>
             </div>
           </div>
+
+          {/* Audit Trail Section */}
+          {!isPreviewMode && (
+            <div className="w-full max-w-2xl mt-8 mb-12">
+              <div className="flex items-center gap-2 mb-4 px-2">
+                <History size={16} className="text-zinc-500" />
+                <h3 className="text-xs font-bold uppercase tracking-widest text-[#E0E0E0] font-mono">Ledger Audit Trail</h3>
+              </div>
+              
+              <div className="bg-[#0C0C0C] border border-[#1F1F1F] rounded-2xl overflow-hidden divide-y divide-[#1F1F1F]">
+                {auditLogs.length > 0 ? (
+                  auditLogs.map((log, idx) => (
+                    <div key={log.id} className="p-4 hover:bg-white/[0.01] transition-colors group">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded ${
+                              log.action === 'STATUS_CHANGE' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
+                              log.action === 'INVOICE_CREATED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20'
+                            }`}>
+                              {log.action.replace(/_/g, ' ')}
+                            </span>
+                            <span className="text-[10px] text-zinc-600 font-mono italic">
+                              {new Date(log.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-zinc-300 font-medium leading-relaxed">
+                            {log.details || 'No detailed log provided for this heartbeat.'}
+                          </p>
+                          <div className="flex items-center gap-1.5 pt-1 text-[10px] text-zinc-500">
+                            <User size={10} className="text-zinc-600" />
+                            <span className="font-bold">Actor:</span>
+                            <span className="font-mono">{log.actorName}</span>
+                            <span className="text-zinc-700 ml-1">UID: {log.actorId.slice(0, 6)}...</span>
+                          </div>
+                        </div>
+                        
+                        {idx === 0 && (
+                          <div className="shrink-0 w-2 h-2 rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/40 animate-pulse" title="Latest Activity" />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center space-y-2">
+                    <div className="w-10 h-10 rounded-xl bg-[#141414] border border-dashed border-[#1F1F1F] flex items-center justify-center text-zinc-700 mx-auto">
+                      <Clock size={20} />
+                    </div>
+                    <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">No history recorded</p>
+                    <p className="text-[10px] text-zinc-600 italic">This record was initialized before the current audit protocol was established.</p>
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 px-2 flex items-center gap-2 text-[10px] text-zinc-600 font-mono italic">
+                <AlertTriangle size={10} />
+                <span>Immutable Ledger: Audit logs are read-only and preserved for security compliance.</span>
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
 

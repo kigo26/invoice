@@ -18,7 +18,7 @@ export default function WorkforceDirectory({ users, suppliers, deliveryPartners,
   const [searchTerm, setSearchTerm] = useState('');
   const [processingUid, setProcessingUid] = useState<string | null>(null);
 
-  const isSuperAdmin = currentUser.role === 'SUPER_ADMIN' || ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(currentUser.email || '');
+  const isSuperAdmin = currentUser.role === 'super_admin' || ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(currentUser.email || '');
 
   const filteredUsers = users.filter(u => u.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase()));
   const filteredDelivery = deliveryPartners.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.email.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -166,16 +166,16 @@ export default function WorkforceDirectory({ users, suppliers, deliveryPartners,
                         {isSuperAdmin && currentUser.uid !== user.uid ? (
                           <div className="relative mt-1">
                             <select
-                              disabled={processingUid === user.uid || (user.role === 'SUPER_ADMIN' && !isSuperAdmin) || user.isDisabled}
+                              disabled={processingUid === user.uid || (user.role === 'super_admin' && !isSuperAdmin) || user.isDisabled}
                               value={user.role || ''}
                               onChange={(e) => handleUpdateRole(user, e.target.value as UserRole)}
                               className="appearance-none bg-[#0C0C0C] border border-[#2A2A2A] rounded-md px-2 py-0.5 pr-6 text-[9px] font-mono text-zinc-300 hover:border-indigo-500/50 focus:outline-none focus:border-indigo-500 transition-colors uppercase tracking-widest cursor-pointer w-full disabled:opacity-50"
                             >
                               <option value="" disabled>No Role</option>
-                              <option value="DELIVERY">Delivery Scout</option>
-                              <option value="SUPPLIER">Provider</option>
-                              <option value="ADMIN">Admin</option>
-                              <option value="SUPER_ADMIN">Super Admin</option>
+                              <option value="delivery">Delivery Scout</option>
+                              <option value="supplier">Provider</option>
+                              <option value="admin">Admin</option>
+                              <option value="super_admin">Super Admin</option>
                             </select>
                             {processingUid === user.uid ? (
                               <Loader2 size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400 animate-spin pointer-events-none" />
@@ -185,9 +185,9 @@ export default function WorkforceDirectory({ users, suppliers, deliveryPartners,
                           </div>
                         ) : (
                           <span className={`text-[9px] font-mono uppercase tracking-widest px-2 py-0.5 rounded border mt-1 inline-block ${
-                            user.role === 'SUPER_ADMIN' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-[#1A1A1A] text-zinc-400 border-[#2A2A2A]'
+                            user.role === 'super_admin' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-[#1A1A1A] text-zinc-400 border-[#2A2A2A]'
                           }`}>
-                            {user.role === 'SUPER_ADMIN' ? 'Super Admin' : user.role || 'No Role'}
+                            {user.role === 'super_admin' ? 'Super Admin' : user.role || 'No Role'}
                           </span>
                         )}
                       </div>

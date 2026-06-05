@@ -24,17 +24,17 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isSignedIn() && (
-        (isActive() && getUserData().role == 'SUPER_ADMIN') ||
+        (isActive() && getUserData().role == 'super_admin') ||
         request.auth.token.email in ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com']
       );
     }
 
     function isAdmin() {
-      return isSuperAdmin() || (isActive() && getUserData().role == 'ADMIN');
+      return isSuperAdmin() || (isActive() && getUserData().role == 'admin');
     }
 
     function isAuthorized() {
-      return isAdmin() || (isActive() && (getUserData().isAuthorized == true || getUserData().role in ['DELIVERY', 'SUPPLIER']));
+      return isAdmin() || (isActive() && (getUserData().isAuthorized == true || getUserData().role in ['delivery', 'supplier']));
     }
 
     function isValidClient(data) {
@@ -46,35 +46,19 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Allow user to read their own profile if signed in. 
-      // Admins can read all profiles.
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       
-      // Allow user to create their own profile. Default role must not be admin.
-      // Super Admins can pre-create users with any role.
-      // Admins can pre-create users but not with ADMIN or SUPER_ADMIN roles.
       allow create: if (isSignedIn() && request.auth.uid == userId && 
-                    !request.resource.data.keys().hasAny(['role', 'isAuthorized', 'isDisabled'])) ||
-                    isSuperAdmin() ||
-                    (isAdmin() && (!('role' in request.resource.data) || (request.resource.data.role != 'ADMIN' && request.resource.data.role != 'SUPER_ADMIN')));
+                    (!('role' in request.resource.data) || request.resource.data.role == 'delivery')) ||
+                    isSuperAdmin();
       
-      // Super Admin can update anything.
-      // Admins can manage non-admin roles (except promoting to admin or disabling).
-      // Users can update their own public profile info.
       allow update: if isSignedIn() && (
         isSuperAdmin() || 
-        (isAdmin() && 
-          // Targeted user is not a super/admin
-          (!('role' in resource.data) || (resource.data.role != 'SUPER_ADMIN' && resource.data.role != 'ADMIN')) && 
-          // Admin cannot change isDisabled (Super Admin only)
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isDisabled']) &&
-          // Admin cannot promote user to admin or super admin
-          (!('role' in request.resource.data) || (request.resource.data.role != 'ADMIN' && request.resource.data.role != 'SUPER_ADMIN'))
-        ) ||
-        (request.auth.uid == userId && isActive() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAuthorized', 'isDisabled']))
+        (request.auth.uid == userId && 
+         request.resource.data.role == resource.data.role && 
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAuthorized', 'isDisabled']))
       );
       
-      // Only Super Admin can delete users
       allow delete: if isSuperAdmin();
     }
 

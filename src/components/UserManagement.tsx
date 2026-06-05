@@ -17,7 +17,7 @@ export default function UserManagement({ onClose, currentUser }: UserManagementP
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'DIRECTORY' | 'INVITE'>('DIRECTORY');
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserRole, setNewUserRole] = useState<UserRole>('DELIVERY');
+  const [newUserRole, setNewUserRole] = useState<UserRole>('delivery');
   const [newUserDisplayName, setNewUserDisplayName] = useState('');
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [processingUid, setProcessingUid] = useState<string | null>(null);
@@ -37,6 +37,7 @@ export default function UserManagement({ onClose, currentUser }: UserManagementP
         uid: syntheticUid,
         email: newUserEmail,
         displayName: newUserDisplayName || newUserEmail.split('@')[0],
+        photoURL: null,
         role: newUserRole,
       };
       
@@ -73,7 +74,7 @@ export default function UserManagement({ onClose, currentUser }: UserManagementP
     };
   }, []);
 
-  const isSuperAdmin = currentUser.role === 'SUPER_ADMIN' || ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(currentUser.email || '');
+  const isSuperAdmin = currentUser.role === 'super_admin' || ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(currentUser.email || '');
 
   const selectedUser = users.find(u => u.uid === selectedUid);
 
@@ -82,7 +83,7 @@ export default function UserManagement({ onClose, currentUser }: UserManagementP
     user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.role?.toLowerCase().includes(searchQuery.toLowerCase())
   ).sort((a, b) => {
-    const order: Record<string, number> = { 'SUPER_ADMIN': 0, 'ADMIN': 1, 'SUPPLIER': 2, 'DELIVERY': 3 };
+    const order: Record<string, number> = { 'super_admin': 0, 'admin': 1, 'supplier': 2, 'delivery': 3 };
     return (order[a.role || ''] || 99) - (order[b.role || ''] || 99);
   });
 
@@ -216,7 +217,7 @@ export default function UserManagement({ onClose, currentUser }: UserManagementP
                           <UserIcon size={12} className="text-zinc-500" />
                         </div>
                       )}
-                      {user.role === 'SUPER_ADMIN' && (
+                      {user.role === 'super_admin' && (
                         <div className="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full p-0.5 shadow-lg shadow-amber-500/20">
                           <Crown size={6} />
                         </div>
@@ -298,9 +299,9 @@ export default function UserManagement({ onClose, currentUser }: UserManagementP
                           onChange={(e) => setNewUserRole(e.target.value as UserRole)}
                           className="w-full px-4 py-2.5 bg-[#0C0C0C] border border-[#1F1F1F] rounded-xl text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none appearance-none cursor-pointer"
                         >
-                          <option value="DELIVERY">Delivery Scout (Field Operations)</option>
-                          <option value="SUPPLIER">Provider (Supplier Partner)</option>
-                          <option value="ADMIN">System Administrator</option>
+                          <option value="delivery">Delivery Scout (Field Operations)</option>
+                          <option value="supplier">Provider (Supplier Partner)</option>
+                          <option value="admin">System Administrator</option>
                         </select>
                       </div>
 
@@ -354,7 +355,7 @@ export default function UserManagement({ onClose, currentUser }: UserManagementP
                       <div>
                         <h2 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
                           {selectedUser.displayName || 'Unnamed Personnel'}
-                          {selectedUser.role === 'SUPER_ADMIN' && <Crown size={20} className="text-amber-400" />}
+                          {selectedUser.role === 'super_admin' && <Crown size={20} className="text-amber-400" />}
                         </h2>
                         <div className="flex items-center gap-4 mt-2">
                           <span className="flex items-center gap-1.5 text-xs text-zinc-500 font-mono bg-[#141414] px-2 py-1 rounded-md border border-[#1F1F1F]">
@@ -400,16 +401,16 @@ export default function UserManagement({ onClose, currentUser }: UserManagementP
                       
                       <div className="space-y-4">
                         <select
-                          disabled={processingUid === selectedUser.uid || (selectedUser.role === 'SUPER_ADMIN' && !isSuperAdmin) || selectedUser.isDisabled || (selectedUser.role === 'ADMIN' && !isSuperAdmin)}
+                          disabled={processingUid === selectedUser.uid || (selectedUser.role === 'super_admin' && !isSuperAdmin) || selectedUser.isDisabled || (selectedUser.role === 'admin' && !isSuperAdmin)}
                           value={selectedUser.role || ''}
                           onChange={(e) => handleUpdateRole(selectedUser, e.target.value as UserRole)}
                           className="w-full bg-[#0C0C0C] border border-[#1F1F1F] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors disabled:opacity-50 appearance-none cursor-pointer"
                         >
                           <option value="" disabled>Awaiting Role Assignment</option>
-                          <option value="DELIVERY">Delivery Scout (Field Operations)</option>
-                          <option value="SUPPLIER">Provider (Supplier Partner)</option>
-                          {isSuperAdmin && <option value="ADMIN">System Administrator</option>}
-                          {isSuperAdmin && <option value="SUPER_ADMIN">Super Administrator</option>}
+                          <option value="delivery">Delivery Scout (Field Operations)</option>
+                          <option value="supplier">Provider (Supplier Partner)</option>
+                          {isSuperAdmin && <option value="admin">System Administrator</option>}
+                          {isSuperAdmin && <option value="super_admin">Super Administrator</option>}
                         </select>
                         <p className="text-[10px] text-zinc-500 font-mono leading-relaxed">
                           Personnel requires authorization to access system nodes. Their Google authentication identity is inherently trusted but strictly isolated to assigned role parameters.

@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { initAuth, googleSignIn, logout, auth, testConnection } from './lib/auth';
 import { User } from 'firebase/auth';
 import { setDoc, doc, updateDoc } from 'firebase/firestore';
-import { getUserProfile, assignUserRole, db } from './lib/auth';
+import { getUserProfile, db } from './lib/auth';
 import { subscribeToInvoices, saveInvoiceToDb, deleteInvoiceFromDb, updateInvoiceInDb, subscribeToUsers, purgeInvoicesFromDb, subscribeToClients, subscribeToSuppliers, subscribeToDeliveryPartners } from './lib/db';
 import RoleSelector from './components/RoleSelector';
 import LoginScreen from './components/LoginScreen';
@@ -59,30 +59,11 @@ export default function App() {
     testConnection();
 
     initAuth(
-      async (authUser, token) => {
+      async (authUser, token, profile) => {
         setUser(authUser);
         setAccessToken(token);
-        
-        try {
-          let profile = await getUserProfile(authUser.uid);
-          
-          if (!profile) {
-            // Auto-onboard new users as DELIVERY if they aren't pre-authorized
-            // This ensures team members can at least "open" the app immediately.
-            console.log('Onboarding new user:', authUser.email);
-            profile = await assignUserRole(authUser, 'DELIVERY');
-            
-            // Log this event
-            const { createAuditLog } = await import('./lib/db');
-            await createAuditLog(profile, 'AUTO_ONBOARD', `System automatically provisioned DELIVERY access node for new user ${authUser.email}`, authUser.uid);
-          }
-          
-          setAppUser(profile);
-        } catch (err) {
-          console.error('Error fetching profile:', err);
-        } finally {
-          setIsLoading(false);
-        }
+        setAppUser(profile);
+        setIsLoading(false);
       },
       () => {
         setUser(null);
@@ -95,12 +76,12 @@ export default function App() {
 
   // Helper to securely ensure skigo5917 acts as Delivery for testing workflows
   useEffect(() => {
-    if (user?.email === 'skigo5917@gmail.com' && appUser && appUser.role !== 'DELIVERY' && !localStorage.getItem('skigo_delivery_override')) {
+    if (user?.email === 'skigo5917@gmail.com' && appUser && appUser.role !== 'delivery' && !localStorage.getItem('skigo_delivery_override')) {
       localStorage.setItem('skigo_delivery_override', 'true');
       const seedRole = async () => {
         try {
-          // Temporarily pivot their user role to DELIVERY so they can see the driver's layout
-          await updateDoc(doc(db, 'users', user.uid), { role: 'DELIVERY' });
+          // Temporarily pivot their user role to delivery so they can see the driver's layout
+          await updateDoc(doc(db, 'users', user.uid), { role: 'delivery' });
           // Ensure they are registered in the logistics DB
           await setDoc(doc(db, 'delivery_partners', user.uid), {
             id: user.uid,
@@ -121,9 +102,19 @@ export default function App() {
 
   // Sync with Firestore
   useEffect(() => {
-    if (appUser && (appUser.role === 'ADMIN' || appUser.isAuthorized || appUser.role === 'DELIVERY' || appUser.role === 'SUPPLIER')) {
+    if (appUser && (appUser.role === 'admin' || appUser.isAuthorized || appUser.role === 'delivery' || appUser.role === 'supplier')) {
       const unsubscribeInvoices = subscribeToInvoices((data) => {
         setInvoices(data);
+        
+        // Handle deep linking for specific invoices via URL param
+        const urlParams = new URLSearchParams(window.location.search);
+        const invoiceId = urlParams.get('invoiceId');
+        if (invoiceId && !selectedInvoice) {
+          const target = data.find(inv => inv.id === invoiceId);
+          if (target) {
+            setSelectedInvoice(target);
+          }
+        }
       });
       
       const unsubscribeUsers = subscribeToUsers((data) => {
@@ -171,8 +162,21 @@ export default function App() {
 
   // Handle invoice saving (creation/modification)
   const handleSaveInvoice = async (savedInvoice: Invoice) => {
+    const isNew = !invoices.find(inv => inv.id === savedInvoice.id);
     try {
       await saveInvoiceToDb(savedInvoice);
+      
+      // Log the movement
+      const { createAuditLog } = await import('./lib/db');
+      if (appUser) {
+        await createAuditLog(
+          appUser, 
+          isNew ? 'INVOICE_CREATED' : 'INVOICE_MODIFIED', 
+          `${isNew ? 'System initialization' : 'Payload overhaul'} for Record ${savedInvoice.id}. Current Status: ${savedInvoice.status}`,
+          savedInvoice.id
+        );
+      }
+
       showToast(`Invoice ${savedInvoice.id} sync successful.`, 'success');
       
       setIsFormOpen(false);
@@ -209,18 +213,38 @@ export default function App() {
     }
   };
 
-  // Quick Status modifier
-  const handleQuickStatusChange = async (id: string, newStatus: InvoiceStatus) => {
+  // Invoice Update modifier (generic)
+  const handleUpdateInvoice = async (id: string, updates: Partial<Invoice>) => {
+    const oldInvoice = invoices.find(inv => inv.id === id);
     try {
-      await updateInvoiceInDb(id, { status: newStatus });
-      showToast(`Status -> ${newStatus}.`, 'success');
+      await updateInvoiceInDb(id, updates);
+      
+      // Log the movement if status changed
+      if (updates.status && updates.status !== oldInvoice?.status) {
+        const { createAuditLog } = await import('./lib/db');
+        if (appUser) {
+          await createAuditLog(
+            appUser, 
+            'STATUS_CHANGE', 
+            `Transition: [${oldInvoice?.status || 'Unknown'}] -> [${updates.status}]${updates.supplierUID ? ' (Supplier Confirmed)' : ''}`,
+            id
+          );
+        }
+      }
+
+      showToast(`Record ${id} updated.`, 'success');
 
       if (selectedInvoice && selectedInvoice.id === id) {
-        setSelectedInvoice({ ...selectedInvoice, status: newStatus });
+        setSelectedInvoice({ ...selectedInvoice, ...updates });
       }
     } catch (err) {
-      showToast('Failed to update status.', 'error');
+      showToast('Failed to update record.', 'error');
     }
+  };
+
+  // Quick Status modifier (legacy wrapper)
+  const handleQuickStatusChange = async (id: string, newStatus: InvoiceStatus) => {
+    await handleUpdateInvoice(id, { status: newStatus });
   };
 
   // Export to standard JSON
@@ -310,36 +334,20 @@ export default function App() {
   };
 
   const handleLogin = async () => {
-    // We call googleSignIn immediately to preserve the user-click gesture context for the browser's popup blocker.
-    // We don't set loading state BEFORE the call to avoid a re-render that might disrupt the gesture.
     try {
       const result = await googleSignIn();
       if (result) {
         setIsLoggingIn(true);
         setUser(result.user);
         setAccessToken(result.accessToken);
+        setAppUser(result.profile);
         
-        // Check for profile
-        const profile = await getUserProfile(result.user.uid);
-        if (profile) {
-          setAppUser(profile);
-          showToast(`Welcome back, ${profile.displayName}`, 'success');
+        if (result.profile.role === 'delivery') {
+          showToast(`Driver Mode: Welcome back, ${result.profile.displayName}`, 'success');
+        } else if (result.profile.role === 'supplier') {
+          showToast(`Supplier Mode: Connection established for ${result.profile.displayName}`, 'success');
         } else {
-          // Create a base record for first-time login so admins can see them in UserManagement
-          const newUser: AppUser = {
-            uid: result.user.uid,
-            email: result.user.email,
-            displayName: result.user.displayName,
-            photoURL: result.user.photoURL,
-            role: undefined, // No role assigned yet
-            isAuthorized: false,
-          };
-          try {
-            await setDoc(doc(db, 'users', result.user.uid), newUser);
-            showToast('Account registered. Awaiting admin authorization.', 'info');
-          } catch (err) {
-            console.error('Failed to create initial profile:', err);
-          }
+          showToast(`Admin Mode: Welcome to the Command Ledger, ${result.profile.displayName}`, 'success');
         }
       }
     } catch (err: any) {
@@ -367,11 +375,11 @@ export default function App() {
     }
   };
 
-  const isAdmin = appUser?.role === 'ADMIN' || 
-                  appUser?.role === 'SUPER_ADMIN' || 
+  const isAdmin = appUser?.role === 'admin' || 
+                  appUser?.role === 'super_admin' || 
                   ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(user?.email || '');
 
-  const isSuperAdmin = appUser?.role === 'SUPER_ADMIN' || 
+  const isSuperAdmin = appUser?.role === 'super_admin' || 
                        ['liliprovisions@gmail.com', 'jamenya1988@gmail.com', 'skigo5917@gmail.com', 'gabriel.mugi66@gmail.com'].includes(user?.email || '');
 
   if (isLoading) {
@@ -487,12 +495,12 @@ export default function App() {
                 <div className="flex flex-col items-end hidden md:flex">
                   <span className="text-[11px] font-bold text-white leading-none text-right">{appUser.displayName}</span>
                   <span className={`text-[9px] font-mono mt-0.5 px-1.5 py-0.5 rounded-sm border ${
-                    appUser.role === 'SUPER_ADMIN' ? 'text-amber-400 border-amber-400/20 bg-amber-400/5' :
-                    appUser.role === 'ADMIN' ? 'text-indigo-400 border-indigo-400/20 bg-indigo-400/5' :
-                    appUser.role === 'DELIVERY' ? 'text-emerald-400 border-emerald-400/20 bg-emerald-400/5' :
+                    appUser.role === 'super_admin' ? 'text-amber-400 border-amber-400/20 bg-amber-400/5' :
+                    appUser.role === 'admin' ? 'text-indigo-400 border-indigo-400/20 bg-indigo-400/5' :
+                    appUser.role === 'delivery' ? 'text-emerald-400 border-emerald-400/20 bg-emerald-400/5' :
                     'text-amber-400 border-amber-400/20 bg-amber-400/5'
                   }`}>
-                    {appUser.role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : appUser.role}
+                    {appUser.role === 'super_admin' ? 'SUPER ADMIN' : appUser.role}
                   </span>
                 </div>
                 {appUser.photoURL ? (
@@ -540,19 +548,19 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col gap-8 w-full no-print">
         
         {appUser && !appUser.isDisabled ? (
-          appUser.role === 'DELIVERY' ? (
+          appUser.role === 'delivery' ? (
             <DeliveryDashboard 
               invoices={invoices} 
               appUser={appUser} 
               onSelectInvoice={(inv) => setSelectedInvoice(inv)}
               onQuickStatusChange={handleQuickStatusChange}
             />
-          ) : appUser.role === 'SUPPLIER' ? (
+          ) : appUser.role === 'supplier' ? (
             <SupplierDashboard 
               invoices={invoices} 
               appUser={appUser} 
               onSelectInvoice={(inv) => setSelectedInvoice(inv)}
-              onQuickStatusChange={handleQuickStatusChange}
+              onUpdateInvoice={handleUpdateInvoice}
             />
           ) : (
             <>
@@ -745,7 +753,13 @@ export default function App() {
             invoice={selectedInvoice}
             accessToken={accessToken}
             appUser={appUser}
-            onClose={() => setSelectedInvoice(null)}
+            onClose={() => {
+              setSelectedInvoice(null);
+              // Clear URL param without refreshing
+              const url = new URL(window.location.href);
+              url.searchParams.delete('invoiceId');
+              window.history.replaceState({}, '', url);
+            }}
             onEdit={() => {
               setEditingInvoice(selectedInvoice);
               setIsFormOpen(true);
@@ -763,7 +777,7 @@ export default function App() {
             key="form-drawer"
             invoice={editingInvoice}
             existingInvoices={invoices}
-            deliveryUsers={usersList.filter(u => u.role === 'DELIVERY')}
+            deliveryUsers={usersList.filter(u => u.role === 'delivery')}
             clients={clientsList}
             onSave={handleSaveInvoice}
             onClose={() => {

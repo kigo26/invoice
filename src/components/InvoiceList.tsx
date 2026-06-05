@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Invoice, InvoiceStatus, AppUser } from '../types';
 import { calculateInvoice, formatCurrency, formatDate } from '../utils';
-import { Search, Filter, Trash2, Edit2, Eye, CheckCircle, Clock, AlertTriangle, FileText, ArrowUpDown, Receipt, X } from 'lucide-react';
+import { Search, Filter, Trash2, Edit2, Eye, CheckCircle, Clock, AlertTriangle, FileText, ArrowUpDown, Receipt, X, Calendar } from 'lucide-react';
 
 interface InvoiceListProps {
   invoices: Invoice[];
@@ -25,13 +25,15 @@ export default function InvoiceList({
   onQuickStatusChange,
   onCreateInvoiceTrigger,
 }: InvoiceListProps) {
-  const isAdmin = appUser?.role === 'ADMIN';
+  const isAdmin = appUser?.role === 'admin';
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'All'>('All');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('issueDate');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  // Multi-field search (id, clientName, clientEmail)
+  // Multi-field search (id, clientName, clientEmail) + Date Range
   const filteredInvoices = invoices.filter((invoice) => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
@@ -41,7 +43,16 @@ export default function InvoiceList({
 
     const matchesStatus = statusFilter === 'All' || invoice.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    // Date range logic (check against issueDate)
+    let matchesDate = true;
+    if (startDate) {
+      matchesDate = matchesDate && invoice.issueDate >= startDate;
+    }
+    if (endDate) {
+      matchesDate = matchesDate && invoice.issueDate <= endDate;
+    }
+
+    return matchesSearch && matchesStatus && matchesDate;
   });
 
   // Sort logic
@@ -124,62 +135,109 @@ export default function InvoiceList({
   return (
     <div className="bg-[#141414] rounded-2xl border border-[#1F1F1F] shadow-xl overflow-hidden flex flex-col h-full" id="invoice-list-container">
       {/* Filters and Search Bar */}
-      <div className="p-6 border-b border-[#1F1F1F] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between no-print">
-        {/* Search Input */}
-        <div className="relative flex-1 max-w-md group">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
-          <input
-            id="invoice-search-input"
-            type="text"
-            placeholder="Search by client name or invoice ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 bg-[#0C0C0C] border border-[#1F1F1F] rounded-lg text-sm text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 placeholder:text-zinc-550 font-sans transition-all"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white cursor-pointer p-0.5 rounded-md hover:bg-white/5 transition-all"
-              title="Clear search"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Action Button & Filtering Tabs Row */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Status Select Filter */}
-          <div className="flex items-center gap-1 p-1 bg-[#0C0C0C] border border-[#1F1F1F] rounded-lg max-w-full overflow-x-auto scroller-hide">
-            {(['All', 'Paid', 'Pending', 'Out for Delivery', 'Delivered', 'Overdue', 'Draft'] as const).map((status) => (
+      <div className="p-6 border-b border-[#1F1F1F] space-y-4 no-print" id="invoice-filters-section">
+        <div className="flex flex-col xl:flex-row xl:items-center gap-4 justify-between">
+          {/* Main Search */}
+          <div className="relative flex-1 max-w-md group">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
+            <input
+              id="invoice-search-input"
+              type="text"
+              placeholder="Search by client, email, or invoice ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 bg-[#0C0C0C] border border-[#1F1F1F] rounded-xl text-sm text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 placeholder:text-zinc-600 font-sans transition-all"
+            />
+            {searchTerm && (
               <button
-                key={status}
-                id={`filter-btn-${status.toLowerCase().replace(/ /g, '-')}`}
-                type="button"
-                onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1 text-xs font-medium rounded-md cursor-pointer transition-colors ${
-                  statusFilter === status
-                    ? 'bg-[#1C1C1C] text-white shadow-xs font-semibold'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white cursor-pointer p-0.5 rounded-md hover:bg-white/5 transition-all"
+                title="Clear search"
               >
-                {status}
+                <X size={14} />
               </button>
-            ))}
+            )}
           </div>
 
-          {/* New Invoice Trigger - Premium styling */}
-          {isAdmin && (
+          {/* Date Range & Status Filtering Action Bar */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Date Range Inputs */}
+            <div className="flex items-center gap-2 p-1 bg-[#0C0C0C] border border-[#1F1F1F] rounded-xl">
+              <div className="flex items-center gap-1.5 px-2 text-zinc-500">
+                <Calendar size={14} />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Range:</span>
+              </div>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-transparent border-none text-[11px] text-zinc-300 focus:ring-0 focus:outline-hidden p-1 cursor-pointer hover:text-white transition-colors"
+              />
+              <span className="text-zinc-700 text-xs">-</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-transparent border-none text-[11px] text-zinc-300 focus:ring-0 focus:outline-hidden p-1 cursor-pointer hover:text-white transition-colors"
+              />
+              {(startDate || endDate) && (
+                <button
+                  onClick={() => { setStartDate(''); setEndDate(''); }}
+                  className="px-2 text-zinc-500 hover:text-indigo-400 cursor-pointer"
+                  title="Clear Date Range"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Clear All Filters */}
+            {(searchTerm || statusFilter !== 'All' || startDate || endDate) && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('All');
+                  setStartDate('');
+                  setEndDate('');
+                }}
+                className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-indigo-400 transition-colors py-2 px-3 border border-transparent hover:border-indigo-500/10 hover:bg-indigo-500/5 rounded-lg cursor-pointer"
+              >
+                Clear All
+              </button>
+            )}
+
+            {/* New Invoice Trigger */}
+            {isAdmin && (
+              <button
+                id="create-new-invoice-btn"
+                type="button"
+                onClick={onCreateInvoiceTrigger}
+                className="cursor-pointer bg-white hover:bg-zinc-200 text-black font-extrabold text-xs uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all inline-flex items-center gap-2 shadow-lg hover:shadow-white/5 active:scale-95"
+              >
+                <Receipt size={14} />
+                New Record
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Status Tabs Filter */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scroller-hide pb-1">
+          {(['All', 'Paid', 'Pending', 'Out for Delivery', 'Delivered', 'Overdue', 'Draft'] as const).map((status) => (
             <button
-              id="create-new-invoice-btn"
+              key={status}
+              id={`filter-btn-${status.toLowerCase().replace(/ /g, '-')}`}
               type="button"
-              onClick={onCreateInvoiceTrigger}
-              className="cursor-pointer bg-white hover:bg-zinc-200 text-black font-bold text-sm px-4 py-2.5 rounded-lg transition-colors inline-flex items-center gap-1.5 shadow-sm"
+              onClick={() => setStatusFilter(status)}
+              className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] rounded-full cursor-pointer transition-all border ${
+                statusFilter === status
+                  ? 'bg-zinc-800 text-white border-zinc-700 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-300 border-transparent hover:border-zinc-800/50'
+              }`}
             >
-              <Receipt size={15} />
-              New Invoice
+              {status}
             </button>
-          )}
+          ))}
         </div>
       </div>
 

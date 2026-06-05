@@ -28,6 +28,8 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
   const [notes, setNotes] = useState('');
   const [deliveryPerson, setDeliveryPerson] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
+  const [deliveryUID, setDeliveryUID] = useState('');
+  const [deliveryEmail, setDeliveryEmail] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [supplierNote, setSupplierNote] = useState('');
   const [spreadsheetId, setSpreadsheetId] = useState('');
@@ -103,6 +105,8 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
       setItems(invoice.items);
       setNotes(invoice.notes || '');
       setDeliveryPerson(invoice.deliveryPerson || '');
+      setDeliveryUID(invoice.deliveryUID || '');
+      setDeliveryEmail(invoice.deliveryEmail || '');
       setDeliveryNote(invoice.deliveryNote || '');
       setDeliveryNotes(invoice.deliveryNotes || '');
       setSupplierNote(invoice.supplierNote || '');
@@ -153,6 +157,8 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
       setItems([{ id: '1', description: 'Consulting & Implementation Services', quantity: 1, price: 1500 }]);
       setNotes('');
       setDeliveryPerson('');
+      setDeliveryUID('');
+      setDeliveryEmail('');
       setDeliveryNote('DELIVERY NOTE\n\nDelivery Note No: ___________________________\n\nDate: ______________________________________\n\nSupplier: __________________________________\n\nDelivered To: Liliprovisions Limited\n\nVehicle Registration: ______________________\n\nDriver Name: _______________________________\n\nItems Delivered\n\n| Item Description | Quantity Ordered (Kg) | Quantity Delivered (Kg) |\n| ---------------- | --------------------- | ----------------------- |\n| Beef Carcass     |                       |                         |\n| Goat Meat        |                       |                         |\n| Beef Mince       |                       |                         |\n| Other            |                       |                         |\n\nTotal Quantity Delivered: __________________ Kg\n\nDelivery Time: _____________________________\n\nCondition of Goods\n\n☐ Good\n\n☐ Damaged\n\nRemarks:\n\n---\n\n---\n\nDelivered By\n\nName: __________________________\n\nSignature: _____________________\n\nDate: __________________________\n\nReceived By\n\nName: __________________________\n\nSignature: _____________________\n\nDate: __________________________\n\nCompany Stamp:');
       setDeliveryNotes('');
       setSupplierNote('MEAT SUPPLY NOTE\n\nSupplier Name: ______________________________\n\nAddress: ____________________________________\n\nPhone: ______________________________________\n\nSupply Note No: _____________________________\n\nDate: _______________________________________\n\nCustomer Name: Liliprovisions Limited\n\nContact Person: _____________________________\n\nPhone: ______________________________________\n\nDescription of Meat Supplied\n\n| Item Description | Quantity (Kg) |\n| ---------------- | ------------- |\n| Beef Carcass     |               |\n| Goat Meat        |               |\n| Beef Mince       |               |\n| Other            |               |\n\nRemarks:\n\n---\n\n---\n\nSupplier Representative\n\nName: __________________________\n\nSignature: _____________________\n\nDate: __________________________\n\nCustomer Representative\n\nName: __________________________\n\nSignature: _____________________\n\nDate Received: _________________');
@@ -271,6 +277,9 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
       items,
       notes: notes.trim() || undefined,
       deliveryPerson: deliveryPerson.trim() || undefined,
+      deliveryUID: deliveryUID || undefined,
+      deliveryName: deliveryPerson.trim() || undefined,
+      deliveryEmail: deliveryEmail || undefined,
       deliveryNote: deliveryNote.trim() || undefined,
       deliveryNotes: deliveryNotes.trim() || undefined,
       supplierNote: supplierNote.trim() || undefined,
@@ -703,18 +712,28 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
               <div className="flex flex-col sm:flex-row gap-2">
                 <select
                   id="form-delivery-person-select"
-                  value={deliveryUsers.some(u => u.displayName === deliveryPerson) ? deliveryPerson : ''}
-                  onChange={(e) => setDeliveryPerson(e.target.value)}
+                  value={deliveryUID}
+                  onChange={(e) => {
+                    const uid = e.target.value;
+                    const selected = deliveryUsers.find(u => u.uid === uid);
+                    if (selected) {
+                      setDeliveryUID(selected.uid);
+                      setDeliveryPerson(selected.displayName || '');
+                      setDeliveryEmail(selected.email || '');
+                    } else {
+                      setDeliveryUID('');
+                    }
+                  }}
                   className="flex-1 px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
                 >
                   <option value="">-- Select Personnel --</option>
                   {deliveryUsers.map(user => (
-                    <option key={user.uid} value={user.displayName || ''}>
+                    <option key={user.uid} value={user.uid}>
                       {user.displayName}
                     </option>
                   ))}
-                  {!deliveryUsers.some(u => u.displayName === deliveryPerson) && deliveryPerson && (
-                    <option value={deliveryPerson}>{deliveryPerson} (Custom)</option>
+                  {deliveryPerson && !deliveryUID && (
+                    <option value="">{deliveryPerson} (Legacy/Manual)</option>
                   )}
                 </select>
                 <input
@@ -722,7 +741,10 @@ export default function InvoiceForm({ invoice, onSave, onClose, existingInvoices
                   type="text"
                   placeholder="Or enter custom name..."
                   value={deliveryPerson}
-                  onChange={(e) => setDeliveryPerson(e.target.value)}
+                  onChange={(e) => {
+                    setDeliveryPerson(e.target.value);
+                    if (deliveryUID) setDeliveryUID(''); // Clear UID if they start typing manually
+                  }}
                   className="flex-1 px-3 py-2 bg-[#141414] border border-[#1F1F1F] rounded-lg text-sm text-white placeholder-zinc-550 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
                 />
               </div>

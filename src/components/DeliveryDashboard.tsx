@@ -35,9 +35,11 @@ export default function DeliveryDashboard({
   // Filter invoices for this delivery person
   const myInvoices = useMemo(() => {
     return invoices.filter(inv => {
-      // For now, we match by name or if strictly assigned. 
-      // In a real app, we might use a deliveryUID field.
-      const isAssigned = inv.deliveryPerson?.toLowerCase() === appUser.displayName?.toLowerCase();
+      // Prioritize filtering by deliveryUID for proper security and usability.
+      // Falls back to name matching for legacy records or manual entries.
+      const isAssigned = inv.deliveryUID 
+        ? inv.deliveryUID === appUser.uid 
+        : (inv.deliveryPerson?.toLowerCase() === appUser.displayName?.toLowerCase());
       
       const matchesSearch = 
         inv.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -52,10 +54,14 @@ export default function DeliveryDashboard({
 
       return isAssigned && matchesSearch && matchesFilter;
     });
-  }, [invoices, appUser.displayName, searchTerm, filterMode]);
+  }, [invoices, appUser.uid, appUser.displayName, searchTerm, filterMode]);
 
   const stats = useMemo(() => {
-    const assigned = invoices.filter(inv => inv.deliveryPerson?.toLowerCase() === appUser.displayName?.toLowerCase());
+    const assigned = invoices.filter(inv => 
+      inv.deliveryUID 
+        ? inv.deliveryUID === appUser.uid 
+        : (inv.deliveryPerson?.toLowerCase() === appUser.displayName?.toLowerCase())
+    );
     return {
       total: assigned.length,
       pending: assigned.filter(inv => inv.status === 'Pending' || inv.status === 'Overdue').length,
