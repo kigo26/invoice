@@ -766,6 +766,7 @@ export default function App() {
             }}
             onStatusChange={(statusVal) => handleQuickStatusChange(selectedInvoice.id, statusVal)}
             onUpdate={handleSaveInvoice}
+            showToast={showToast}
           />
         )}
       </AnimatePresence>

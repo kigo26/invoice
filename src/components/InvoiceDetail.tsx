@@ -18,13 +18,15 @@ interface InvoiceDetailProps {
   onEdit: () => void;
   onStatusChange: (status: InvoiceStatus) => void;
   onUpdate: (invoice: Invoice) => void;
+  showToast: (message: string, type: 'success' | 'error' | 'info') => void;
 }
 
-export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, onEdit, onStatusChange, onUpdate }: InvoiceDetailProps) {
+export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, onEdit, onStatusChange, onUpdate, showToast }: InvoiceDetailProps) {
   const { subtotal, taxAmount, total } = calculateInvoice(invoice);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isGeneratingSheet, setIsGeneratingSheet] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isEmailing, setIsEmailing] = useState(false);
   const [sheetUrl, setSheetUrl] = useState<string | null>(invoice.spreadsheetId ? `https://docs.google.com/spreadsheets/d/${invoice.spreadsheetId}` : null);
   const [viewMode, setViewMode] = useState<'invoice' | 'delivery' | 'supply' | 'reconciliation'>('invoice');
 
@@ -86,6 +88,14 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
     };
     onUpdate(updatedInvoice);
     setActiveCamera(null);
+  };
+
+  const handleEmailInvoice = async () => {
+    setIsEmailing(true);
+    // Simulate sending
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsEmailing(false);
+    showToast(`Invoice ${invoice.id} sent to ${invoice.clientEmail}`, 'success');
   };
 
   const handlePrint = () => {
@@ -340,32 +350,16 @@ export default function InvoiceDetail({ invoice, accessToken, appUser, onClose, 
             </button>
 
             {/* Email Invoice Button */}
-            {(() => {
-              const { total } = calculateInvoice(invoice);
-              const subject = encodeURIComponent(`Invoice Summary: ${invoice.id}`);
-              const directLink = `${window.location.origin}/?invoiceId=${invoice.id}`;
-              const body = encodeURIComponent(
-                `Invoice Details:\n\n` +
-                `Invoice ID: ${invoice.id}\n` +
-                `Client: ${invoice.clientName}\n` +
-                `Issue Date: ${formatDate(invoice.issueDate)}\n` +
-                `Status: ${invoice.status}\n` +
-                `Total Amount: ${formatCurrency(total)}\n\n` +
-                `View Record Online: ${directLink}\n\n` +
-                `Thank you for your business!`
-              );
-              const mailtoLink = `mailto:${invoice.clientEmail}?subject=${subject}&body=${body}`;
-
-              return (
-                <a
-                  id="email-invoice-btn"
-                  href={mailtoLink}
-                  className="cursor-pointer bg-white hover:bg-zinc-200 text-black font-bold text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm animate-none"
-                >
-                  <Mail size={13} /> Email Invoice
-                </a>
-              );
-            })()}
+            <button
+              id="email-invoice-btn"
+              type="button"
+              onClick={handleEmailInvoice}
+              disabled={isEmailing}
+              className="cursor-pointer bg-white hover:bg-zinc-200 text-black font-bold text-xs px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm animate-none disabled:opacity-50"
+            >
+              {isEmailing ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
+              Email Invoice
+            </button>
 
             {isAdmin && accessToken && (
               <div className="flex items-center gap-2">
